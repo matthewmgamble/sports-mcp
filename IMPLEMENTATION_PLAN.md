@@ -331,6 +331,12 @@ NHL schedule/score mappers, MLB schedule/linescore mappers with 406 fallback, `S
 **Acceptance:** 100 concurrent requests for one league/date make **one** upstream call; with the breaker open, the last snapshot comes back marked stale; clock-driven tests cover TTL boundaries, game-start transitions, midnight rollover and the DST change (Nov 1, 2026).
 
 ### Sprint 4: REST + MCP (4–5 days)
+*Implementation notes (done 2026-10-12):*
+- **Shared validation.** `SportsService` takes the raw strings both interfaces receive, so validation and error messages are shared. MCP structured content and REST bodies are serialised by the same mapper and are byte-identical; `ApiContractTest` checks 13 query pairs.
+- **One set of schemas.** Schemas are defined once in `api/schemas.json` and used inlined as MCP output schemas (the SDK validates every tool result against them), as OpenAPI components (`/openapi.json`, with hand-written paths in `api/openapi.json`), and by contract tests.
+- **Team schedules on demand.** `fetchTeamSchedule` (ESPN `teams/{id}/schedule`, NHL `club-schedule-season`, MLB `schedule?teamId&season`) fetches a team's season, cached 6 h per team. "Next 5 games" for weekly sports reaches past the 14-day sync window.
+- **Parameter names.** These match across interfaces (`timezone`; REST also accepts `tz`). `sports_get_team_schedule` accepts `league` to disambiguate names.
+- **Not done.** `sports_ping` was removed. MCP resources (the stretch goal) are deferred.
 `SportsService` façade, DTOs, REST routes, `openapi.yaml`, MCP tools with input/output schemas and summaries, `TeamResolver` integration, error mapping, MCP resources (stretch).
 **Acceptance:** contract test shows REST and MCP structured output are identical for the same query; MCP Inspector, Claude Code and Ack can answer "when do the Leafs play next?", "NFL scores right now" and "what MLB games are today?"; invalid inputs give bounded, actionable errors.
 

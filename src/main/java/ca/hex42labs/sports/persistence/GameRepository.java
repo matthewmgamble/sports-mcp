@@ -133,6 +133,42 @@ public final class GameRepository {
                 limit);
     }
 
+    /**
+     * Flexible read for the API: games in {@code [from, to)}, optionally for one league and/or team
+     * and one status, earliest first (or latest first with {@code newestFirst}).
+     */
+    public List<Game> find(
+            String league,
+            String teamId,
+            GameStatus status,
+            Instant from,
+            Instant to,
+            boolean newestFirst,
+            int limit) {
+        StringBuilder sql =
+                new StringBuilder(
+                        "SELECT " + COLUMNS + " FROM games WHERE starts_at >= ? AND starts_at < ?");
+        List<Object> args =
+                new ArrayList<>(List.of(Timestamps.format(from), Timestamps.format(to)));
+        if (league != null) {
+            sql.append(" AND league = ?");
+            args.add(league);
+        }
+        if (teamId != null) {
+            sql.append(" AND (home_team_id = ? OR away_team_id = ?)");
+            args.add(teamId);
+            args.add(teamId);
+        }
+        if (status != null) {
+            sql.append(" AND status = ?");
+            args.add(status.name());
+        }
+        sql.append(newestFirst ? " ORDER BY starts_at DESC, id DESC" : " ORDER BY starts_at, id");
+        sql.append(" LIMIT ?");
+        args.add(limit);
+        return query(sql.toString(), args.toArray());
+    }
+
     public List<Game> findByIds(Collection<String> ids) {
         if (ids.isEmpty()) {
             return List.of();

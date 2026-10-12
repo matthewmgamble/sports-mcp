@@ -58,7 +58,7 @@ class AppEndToEndTest {
     }
 
     @Test
-    void mcpInitializeListAndCallPing() throws Exception {
+    void mcpInitializeListAndCallATool() throws Exception {
         JsonNode init =
                 rpc(
                         "initialize",
@@ -70,14 +70,15 @@ class AppEndToEndTest {
         assertThat(init.at("/result/capabilities/tools").isObject()).isTrue();
 
         JsonNode list = rpc("tools/list", Map.of());
-        assertThat(list.at("/result/tools/0/name").asText()).isEqualTo("sports_ping");
-        assertThat(list.at("/result/tools/0/annotations/readOnlyHint").asBoolean()).isTrue();
+        assertThat(list.at("/result/tools").size()).isEqualTo(6);
 
-        JsonNode call = rpc("tools/call", Map.of("name", "sports_ping", "arguments", Map.of()));
+        JsonNode call =
+                rpc("tools/call", Map.of("name", "sports_list_leagues", "arguments", Map.of()));
         assertThat(call.at("/result/isError").asBoolean(false)).isFalse();
-        assertThat(call.at("/result/structuredContent/time").asText())
+        assertThat(call.at("/result/structuredContent/data").size()).isEqualTo(9);
+        assertThat(call.at("/result/structuredContent/meta/asOf").asText())
                 .isEqualTo("2026-10-12T18:00:00Z");
-        assertThat(call.at("/result/content/0/text").asText()).contains("is up");
+        assertThat(call.at("/result/content/0/text").asText()).startsWith("Leagues: NFL (nfl)");
     }
 
     @Test

@@ -194,6 +194,32 @@ public final class MlbProvider implements SportsProvider {
         return result.build(clock.instant());
     }
 
+    /**
+     * The club's season (regular season and postseason). The season is the current Eastern year,
+     * which is also right in the off-season once next year's schedule is published.
+     */
+    @Override
+    public ScheduleResult fetchTeamSchedule(League league, Team team) throws ProviderException {
+        int season =
+                LocalDate.now(clock.withZone(java.time.ZoneId.of("America/New_York"))).getYear();
+        JsonNode root =
+                http.getJson(
+                        ID,
+                        URI.create(
+                                baseUrl
+                                        + "/schedule?sportId=1&teamId="
+                                        + team.providerTeamId()
+                                        + "&season="
+                                        + season
+                                        + "&gameType=R,F,D,L,W"
+                                        + HYDRATE));
+        Instant fetchedAt = clock.instant();
+        Map<String, Team> teams = new LinkedHashMap<>();
+        return new ScheduleResult.Builder()
+                .add(mapSchedule(root, fetchedAt, teams), List.copyOf(teams.values()), fetchedAt)
+                .build(fetchedAt);
+    }
+
     @Override
     public boolean hasPerGameFeed() {
         return true;

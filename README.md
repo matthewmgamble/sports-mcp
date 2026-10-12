@@ -2,12 +2,11 @@
 
 Sports scores, schedules and team information for AI agents (MCP) and regular apps (REST).
 
-> **Status: Sprint 3 (live scores).** Schedules sync in the background; live scores refresh
-> on demand with per-league-day request coalescing, rate limits, circuit breakers and stale
-> fallback. MCP exposes only `sports_ping` until Sprint 4.
-> See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) for the roadmap.
+> **Status: Sprint 4 (interfaces).** MCP tools and the REST API are live over background-synced
+> schedules and on-demand live scores. Public-hosting hardening (rate limits, metrics, deploy)
+> is Sprint 5. See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
 
-**Leagues (planned MVP):** NFL, NHL, NBA, MLB, NCAA football, NCAA men's basketball, Premier League,
+**Leagues:** NFL, NHL, NBA, MLB, NCAA football, NCAA men's basketball, Premier League,
 La Liga, Bundesliga.
 
 ## Quick start
@@ -26,6 +25,33 @@ Add it to an MCP client (Streamable HTTP):
 claude mcp add --transport http sports http://localhost:8080/mcp
 # or inspect it:
 npx @modelcontextprotocol/inspector --cli http://localhost:8080/mcp --transport http --method tools/list
+```
+
+### MCP tools
+
+| Tool | Use it for |
+|---|---|
+| `sports_list_leagues` | Which leagues are covered (ids for other tools) |
+| `sports_list_teams` | Find a team by name, city, abbreviation or nickname ("leafs") |
+| `sports_get_games` | A league's or team's games for a day or date range, with scores |
+| `sports_get_live_scores` | Everything in progress now (optionally one league or team) |
+| `sports_get_game` | One game by id |
+| `sports_get_team_schedule` | A team's last 3 results and next 5 games, or a date range |
+
+Team arguments take ids (`nhl:tor`) or names (`Maple Leafs`); ambiguous names return the
+candidates. Every result has `structuredContent` (`{data, meta}`) plus a text summary;
+`meta.isStale` and `meta.staleReason` say when upstream couldn't be reached.
+
+### REST
+
+The same operations, same envelope ([OpenAPI](http://localhost:8080/openapi.json)):
+
+```sh
+curl "localhost:8080/api/v1/games?league=nhl&date=today&tz=America/Toronto"
+curl "localhost:8080/api/v1/games/live"
+curl "localhost:8080/api/v1/teams/leafs/schedule"
+curl "localhost:8080/api/v1/teams?search=packers"
+curl "localhost:8080/api/v1/games/nfl:401872994?refresh=true"
 ```
 
 Configuration is via environment variables; see [`.env.example`](.env.example).

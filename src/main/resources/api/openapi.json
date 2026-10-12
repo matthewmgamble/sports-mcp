@@ -1,0 +1,126 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "sports-mcp REST API",
+    "description": "Read-only sports scores, schedules and teams. Every response is {data, meta}; meta carries provenance (sources, attribution) and freshness (asOf, isStale). The same operations are available as MCP tools at /mcp. Data comes from unofficial public endpoints (ESPN, NHL, MLB); not affiliated with or endorsed by them.",
+    "license": {"name": "Apache-2.0", "identifier": "Apache-2.0"},
+    "version": "dev"
+  },
+  "paths": {
+    "/api/v1/leagues": {
+      "get": {
+        "operationId": "listLeagues",
+        "summary": "Leagues covered",
+        "responses": {
+          "200": {"description": "Enabled leagues", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/LeagueList"}}}}
+        }
+      }
+    },
+    "/api/v1/teams": {
+      "get": {
+        "operationId": "searchTeams",
+        "summary": "Find teams by name, city, abbreviation or nickname",
+        "parameters": [
+          {"name": "search", "in": "query", "schema": {"type": "string"}, "description": "Required unless league is given"},
+          {"name": "league", "in": "query", "schema": {"type": "string"}},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 400, "default": 50}}
+        ],
+        "responses": {
+          "200": {"description": "Matching teams, best first", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TeamList"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"}
+        }
+      }
+    },
+    "/api/v1/leagues/{league}/teams": {
+      "get": {
+        "operationId": "listTeams",
+        "summary": "A league's teams",
+        "parameters": [
+          {"name": "league", "in": "path", "required": true, "schema": {"type": "string"}, "example": "nhl"},
+          {"name": "search", "in": "query", "schema": {"type": "string"}},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 400, "default": 50}}
+        ],
+        "responses": {
+          "200": {"description": "Teams", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TeamList"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"}
+        }
+      }
+    },
+    "/api/v1/games": {
+      "get": {
+        "operationId": "listGames",
+        "summary": "Games and scores for a league or team over a date range",
+        "parameters": [
+          {"name": "league", "in": "query", "schema": {"type": "string"}, "description": "Required unless team is given"},
+          {"name": "team", "in": "query", "schema": {"type": "string"}, "description": "Team id (nhl:tor) or name"},
+          {"name": "date", "in": "query", "schema": {"type": "string"}, "description": "YYYY-MM-DD, today, tomorrow or yesterday (default today)"},
+          {"name": "from", "in": "query", "schema": {"type": "string", "format": "date"}},
+          {"name": "to", "in": "query", "schema": {"type": "string", "format": "date"}, "description": "Inclusive; range max 31 days"},
+          {"name": "status", "in": "query", "schema": {"type": "string", "enum": ["SCHEDULED", "LIVE", "FINAL", "POSTPONED", "SUSPENDED", "CANCELLED", "UNKNOWN"]}},
+          {"name": "timezone", "in": "query", "schema": {"type": "string"}, "description": "IANA timezone (alias: tz). Default America/New_York"},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 25}}
+        ],
+        "responses": {
+          "200": {"description": "Games, earliest first", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/GameList"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "404": {"$ref": "#/components/responses/NotFound"}
+        }
+      }
+    },
+    "/api/v1/games/live": {
+      "get": {
+        "operationId": "liveGames",
+        "summary": "Games in progress now",
+        "parameters": [
+          {"name": "league", "in": "query", "schema": {"type": "string"}, "description": "Omit for all leagues"},
+          {"name": "team", "in": "query", "schema": {"type": "string"}},
+          {"name": "refresh", "in": "query", "schema": {"type": "boolean"}, "description": "Bypass the freshness window (still rate-limited)"},
+          {"name": "timezone", "in": "query", "schema": {"type": "string"}}
+        ],
+        "responses": {
+          "200": {"description": "Live games", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/GameList"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"}
+        }
+      }
+    },
+    "/api/v1/games/{gameId}": {
+      "get": {
+        "operationId": "getGame",
+        "summary": "One game",
+        "parameters": [
+          {"name": "gameId", "in": "path", "required": true, "schema": {"type": "string"}, "example": "nfl:401872994"},
+          {"name": "refresh", "in": "query", "schema": {"type": "boolean"}},
+          {"name": "timezone", "in": "query", "schema": {"type": "string"}}
+        ],
+        "responses": {
+          "200": {"description": "The game", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/GameOne"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "404": {"$ref": "#/components/responses/NotFound"}
+        }
+      }
+    },
+    "/api/v1/teams/{team}/schedule": {
+      "get": {
+        "operationId": "teamSchedule",
+        "summary": "A team's last 3 and next 5 games, or games in a range",
+        "parameters": [
+          {"name": "team", "in": "path", "required": true, "schema": {"type": "string"}, "example": "nhl:tor"},
+          {"name": "league", "in": "query", "schema": {"type": "string"}, "description": "Disambiguates a team name"},
+          {"name": "from", "in": "query", "schema": {"type": "string", "format": "date"}},
+          {"name": "to", "in": "query", "schema": {"type": "string", "format": "date"}},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}},
+          {"name": "timezone", "in": "query", "schema": {"type": "string"}}
+        ],
+        "responses": {
+          "200": {"description": "Games, earliest first", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/GameList"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "404": {"$ref": "#/components/responses/NotFound"}
+        }
+      }
+    }
+  },
+  "x-responses": {
+    "BadRequest": {"description": "Invalid or ambiguous input; message says what to send instead", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
+    "NotFound": {"description": "Unknown team, game or endpoint", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+  }
+}

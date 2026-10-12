@@ -4,13 +4,16 @@ import ca.hex42labs.sports.config.LeagueRegistry;
 import ca.hex42labs.sports.domain.Game;
 import ca.hex42labs.sports.domain.GameStatus;
 import ca.hex42labs.sports.domain.League;
+import ca.hex42labs.sports.domain.Team;
 import ca.hex42labs.sports.persistence.GameRepository;
 import ca.hex42labs.sports.provider.ProviderBatch;
 import ca.hex42labs.sports.provider.ProviderException;
 import ca.hex42labs.sports.provider.Providers;
+import ca.hex42labs.sports.provider.ScheduleResult;
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.Expiry;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -116,6 +119,12 @@ public final class ScoreRefreshCoordinator implements AutoCloseable {
     /** When each league-day was last fetched, for the empty-bucket rule. */
     private final Cache<RefreshKey, Instant> bucketFetchedAt;
 
+    /** Season schedules per team: kept 6 hours on success, retried after 2 minutes on failure. */
+    private final AsyncCache<String, Fetch> teamSchedules;
+
+    static final Duration TEAM_SCHEDULE_TTL = Duration.ofHours(6);
+    static final Duration TEAM_SCHEDULE_RETRY = Duration.ofMinutes(2);
+
     public ScoreRefreshCoordinator(
             LeagueRegistry leagues,
             Providers providers,
@@ -143,6 +152,18 @@ public final class ScoreRefreshCoordinator implements AutoCloseable {
                         .ticker(() -> TimeUnit.MILLISECONDS.toNanos(clock.millis()))
                         .maximumSize(10_000)
                         .build();
+        this.teamSchedules =
+                Caffeine.newBuilder()
+                        .expireAfter(
+                                Expiry.<String, Fetch>creating(
+                                        (k, f) ->
+                                                f instanceof Fetch.Ok
+                                                        ? TEAM_SCHEDULE_TTL
+                                                        : TEAM_SCHEDULE_RETRY))
+                        .ticker(() -> TimeUnit.MILLISECONDS.toNanos(clock.millis()))
+                        .maximumSize(5_000)
+                        .executor(executor)
+                        .buildAsync();
     }
 
     /** The bucket a game lives in upstream. */
@@ -240,6 +261,71 @@ public final class ScoreRefreshCoordinator implements AutoCloseable {
         }
         return new Refreshed<>(
                 liveNow, r.asOf(), r.stale(), r.staleReason(), sources(liveNow, Set.of()));
+    }
+
+    /**
+     * Makes sure {@code team}'s season schedule has been pulled recently (it reaches beyond the
+     * background sync horizon). Concurrent callers share one fetch.
+     *
+     * @return a failure reason if the schedule couldn't be refreshed
+     */
+    public Optional<String> ensureTeamSchedule(Team team, boolean force) {
+        if (force) {
+            Fetch cached = teamSchedules.synchronous().getIfPresent(team.id());
+            if (cached != null
+                    && Duration.between(fetchedAt(cached), clock.instant())
+                                    .compareTo(Duration.ofMinutes(1))
+                            > 0) {
+                teamSchedules.synchronous().invalidate(team.id());
+            }
+        }
+        CompletableFuture<Fetch> f =
+                teamSchedules.get(
+                        team.id(),
+                        (k, exec) ->
+                                CompletableFuture.supplyAsync(() -> loadTeamSchedule(team), exec));
+        try {
+            Fetch result = f.get(settings.waitForUpstream().toNanos(), TimeUnit.NANOSECONDS);
+            return result instanceof Fetch.Failed failed
+                    ? Optional.of(failed.reason())
+                    : Optional.empty();
+        } catch (TimeoutException e) {
+            return Optional.of(team.id() + " schedule: still waiting on upstream");
+        } catch (ExecutionException e) {
+            return Optional.of(team.id() + " schedule: " + e.getCause());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Optional.of("interrupted");
+        }
+    }
+
+    private Fetch loadTeamSchedule(Team team) {
+        Optional<League> league = leagues.find(team.league());
+        if (league.isEmpty()) {
+            return new Fetch.Failed(clock.instant(), "league " + team.league() + " disabled");
+        }
+        try {
+            ScheduleResult r =
+                    providers.forLeague(league.get()).fetchTeamSchedule(league.get(), team);
+            teams.addFromGames(r.teams());
+            games.upsertAll(r.games(), clock.instant());
+            log.debug("Team schedule {}: {} games", team.id(), r.games().size());
+            return new Fetch.Ok(clock.instant());
+        } catch (ProviderException e) {
+            log.info("Team schedule {} failed: {}", team.id(), e.getMessage());
+            return new Fetch.Failed(clock.instant(), e.getMessage());
+        } catch (RuntimeException e) {
+            log.warn("Team schedule {} failed unexpectedly", team.id(), e);
+            return new Fetch.Failed(
+                    clock.instant(), team.id() + ": " + e.getClass().getSimpleName());
+        }
+    }
+
+    private static Instant fetchedAt(Fetch f) {
+        return switch (f) {
+            case Fetch.Ok ok -> ok.at();
+            case Fetch.Failed failed -> failed.at();
+        };
     }
 
     // ---------------------------------------------------------------- core

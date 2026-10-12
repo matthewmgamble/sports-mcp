@@ -48,6 +48,7 @@ mlb/schedule-20260927-cancelled            https://statsapi.mlb.com/api/v1/sched
 mlb/schedule-20260902-extra-innings        https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=2026-09-02&hydrate=linescore,team
 mlb/schedule-range-postseason              https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=2026-10-01&endDate=2026-10-11&hydrate=linescore,team
 mlb/schedule-20270115-offseason            https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=2027-01-15&hydrate=linescore,team
+mlb/team-schedule-tor-2026                 https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=141&season=2026&gameType=R,F,D,L,W&hydrate=linescore,team
 mlb/linescore-824312-extra-innings         https://statsapi.mlb.com/api/v1/game/824312/linescore
 mlb/teams                                  https://statsapi.mlb.com/api/v1/teams?sportId=1
 

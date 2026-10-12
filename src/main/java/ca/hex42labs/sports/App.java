@@ -1,7 +1,10 @@
 package ca.hex42labs.sports;
 
+import ca.hex42labs.sports.api.Schemas;
+import ca.hex42labs.sports.api.SportsService;
 import ca.hex42labs.sports.api.admin.ManagementServer;
 import ca.hex42labs.sports.api.mcp.McpServerFactory;
+import ca.hex42labs.sports.api.rest.RestRoutes;
 import ca.hex42labs.sports.application.FreshnessPolicy;
 import ca.hex42labs.sports.application.ScheduleSync;
 import ca.hex42labs.sports.application.ScoreRefreshCoordinator;
@@ -50,6 +53,7 @@ public final class App implements AutoCloseable {
     private final ScheduleSync schedules;
     private final List<ResilientProvider> resilient;
     private final ScoreRefreshCoordinator scores;
+    private final SportsService sports;
     private final ManagementServer management;
     private final BackgroundJobs jobs;
     private final McpServerFactory.Mcp mcp;
@@ -102,6 +106,17 @@ public final class App implements AutoCloseable {
                                 Duration.ofSeconds(config.refreshFloorSeconds()),
                                 Duration.ofSeconds(6),
                                 config.syncHorizonDays()));
+        this.sports =
+                new SportsService(
+                        leagues,
+                        teams,
+                        teamResolver,
+                        games,
+                        scores,
+                        clock,
+                        config.defaultTimezone());
+        this.mcp = McpServerFactory.create(config, json, sports);
+        Map<String, Object> openApi = RestRoutes.openApi(Schemas.bundled(), config.version());
         this.jobs =
                 config.backgroundSync()
                         ? new BackgroundJobs(
@@ -125,8 +140,6 @@ public final class App implements AutoCloseable {
                         syncState,
                         games,
                         resilient);
-
-        this.mcp = McpServerFactory.create(config, json, clock);
 
         this.http =
                 Javalin.create(
@@ -152,6 +165,7 @@ public final class App implements AutoCloseable {
                                         ctx.status(ok ? 200 : 503)
                                                 .json(Map.of("status", ok ? "UP" : "DOWN"));
                                     });
+                            RestRoutes.mount(cfg.routes, sports, openApi);
                         });
     }
 
@@ -196,6 +210,10 @@ public final class App implements AutoCloseable {
 
     public ScheduleSync schedules() {
         return schedules;
+    }
+
+    public SportsService sports() {
+        return sports;
     }
 
     public ScoreRefreshCoordinator scores() {

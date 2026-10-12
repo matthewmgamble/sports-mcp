@@ -69,6 +69,16 @@ public final class EspnProvider implements SportsProvider {
         return result.build(clock.instant());
     }
 
+    /** {@code teams/{id}/schedule}: the team's current season (regular season by default). */
+    @Override
+    public ScheduleResult fetchTeamSchedule(League league, Team team) throws ProviderException {
+        JsonNode root =
+                http.getJson(ID, uri(league, "teams/" + team.providerTeamId() + "/schedule", ""));
+        Instant fetchedAt = clock.instant();
+        EspnMapper.Scoreboard sb = EspnMapper.scoreboard(league, root, fetchedAt);
+        return new ScheduleResult.Builder().add(sb.games(), sb.teams(), fetchedAt).build(fetchedAt);
+    }
+
     // League paths and queries come from the registry allowlist, never from user input.
     private URI uri(League league, String endpoint, String query) {
         String url = baseUrl + "/" + league.providerPath() + "/" + endpoint;

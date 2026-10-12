@@ -119,6 +119,28 @@ public final class NhlProvider implements SportsProvider {
                 league.id(), bucket, games, List.copyOf(teams.values()), fetchedAt);
     }
 
+    /** {@code club-schedule-season/{ABBR}/now}: redirects to the current season. */
+    @Override
+    public ScheduleResult fetchTeamSchedule(League league, Team team) throws ProviderException {
+        JsonNode root =
+                http.getJson(
+                        ID,
+                        URI.create(
+                                baseUrl
+                                        + "/club-schedule-season/"
+                                        + team.providerTeamId()
+                                        + "/now"));
+        Instant fetchedAt = clock.instant();
+        Map<String, Team> teams = new LinkedHashMap<>();
+        List<Game> games = new ArrayList<>();
+        for (JsonNode g : root.path("games")) {
+            NhlMapper.game(g, fetchedAt, teams).ifPresent(games::add);
+        }
+        return new ScheduleResult.Builder()
+                .add(games, List.copyOf(teams.values()), fetchedAt)
+                .build(fetchedAt);
+    }
+
     /**
      * {@code schedule/{date}} returns a 7-day {@code gameWeek} plus {@code nextStartDate}; page
      * through until the window is covered. Days outside the window are dropped.

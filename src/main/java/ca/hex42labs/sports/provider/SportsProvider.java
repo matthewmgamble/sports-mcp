@@ -44,6 +44,12 @@ public interface SportsProvider {
         return Optional.empty();
     }
 
+    /**
+     * One team's current-season schedule, past and future. Reaches beyond the background sync
+     * horizon, so "next 5 games" works for weekly sports.
+     */
+    ScheduleResult fetchTeamSchedule(League league, Team team) throws ProviderException;
+
     /** Whether {@link #refreshGame} is worth calling for live games. */
     default boolean hasPerGameFeed() {
         return false;

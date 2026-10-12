@@ -99,6 +99,11 @@ public final class ResilientProvider implements SportsProvider {
     }
 
     @Override
+    public ScheduleResult fetchTeamSchedule(League league, Team team) throws ProviderException {
+        return call(() -> delegate.fetchTeamSchedule(league, team));
+    }
+
+    @Override
     public Optional<Game> refreshGame(League league, Game game) throws ProviderException {
         return call(() -> delegate.refreshGame(league, game));
     }

@@ -101,6 +101,28 @@ public class FakeProvider implements SportsProvider {
         return scoreboard.apply(league, bucket);
     }
 
+    private final Map<String, ScheduleResult> teamSchedules = new HashMap<>();
+
+    /** Every fetchTeamSchedule call, by team id. */
+    public final List<String> teamScheduleCalls = new CopyOnWriteArrayList<>();
+
+    public FakeProvider teamSchedule(String teamId, ScheduleResult result) {
+        teamSchedules.put(teamId, result);
+        return this;
+    }
+
+    @Override
+    public ScheduleResult fetchTeamSchedule(League league, Team team) throws ProviderException {
+        teamScheduleCalls.add(team.id());
+        if (scheduleFailure != null) {
+            throw scheduleFailure;
+        }
+        ScheduleResult r = teamSchedules.get(team.id());
+        return r != null
+                ? r
+                : new ScheduleResult(List.of(), List.of(), java.time.Instant.EPOCH, List.of());
+    }
+
     @Override
     public boolean hasPerGameFeed() {
         return refreshGame != null;

@@ -139,7 +139,11 @@ final class EspnMapper {
                         "espn",
                         eventId,
                         season.hasNonNull("year") ? season.path("year").asText() : null,
-                        seasonType(season.path("type").asInt(0), text(season, "slug")),
+                        // Scoreboards put the type on season; team schedules on seasonType.
+                        seasonType(
+                                season.path("type")
+                                        .asInt(ev.path("seasonType").path("type").asInt(0)),
+                                text(season, "slug")),
                         homeTeam.get().id(),
                         awayTeam.get().id(),
                         startsAt,

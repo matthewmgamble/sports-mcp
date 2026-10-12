@@ -1,0 +1,109 @@
+{
+  "$comment": "Response schemas shared by MCP tool outputSchemas, OpenAPI components and contract tests. The MCP SDK validates every tool result against these, so they must match the DTOs exactly.",
+  "$defs": {
+    "League": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "sport", "source"],
+      "properties": {
+        "id": {"type": "string", "description": "League id used in other calls, e.g. nfl"},
+        "name": {"type": "string"},
+        "sport": {"type": "string", "enum": ["football", "basketball", "hockey", "baseball", "soccer"]},
+        "source": {"type": "string", "description": "Upstream data provider"}
+      }
+    },
+    "Team": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "league", "name"],
+      "properties": {
+        "id": {"type": "string", "description": "Canonical team id, e.g. nhl:tor"},
+        "league": {"type": "string"},
+        "name": {"type": "string", "description": "Full name, e.g. Toronto Maple Leafs"},
+        "shortName": {"type": "string"},
+        "abbreviation": {"type": "string"},
+        "location": {"type": "string"},
+        "logoUrl": {"type": "string", "format": "uri"}
+      }
+    },
+    "Side": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name"],
+      "properties": {
+        "id": {"type": "string"},
+        "name": {"type": "string"},
+        "abbreviation": {"type": "string"},
+        "logoUrl": {"type": "string", "format": "uri"},
+        "score": {"type": "integer", "description": "Absent before the game starts"},
+        "shootout": {"type": "integer", "description": "Penalty-shootout goals (soccer), when applicable"}
+      }
+    },
+    "Situation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["redZone"],
+      "properties": {
+        "possessionTeamId": {"type": "string"},
+        "downDistance": {"type": "string", "description": "e.g. 2nd & 13"},
+        "fieldPosition": {"type": "string", "description": "e.g. DET 31"},
+        "redZone": {"type": "boolean"}
+      }
+    },
+    "Game": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "league", "status", "startsAt", "localStart", "home", "away", "source", "fetchedAt"],
+      "properties": {
+        "id": {"type": "string", "description": "Canonical game id, e.g. nfl:401872994"},
+        "league": {"type": "string"},
+        "status": {"type": "string", "enum": ["SCHEDULED", "LIVE", "FINAL", "POSTPONED", "SUSPENDED", "CANCELLED", "UNKNOWN"]},
+        "statusDetail": {"type": "string", "description": "Short human text: 'Q3 5:42', '2nd Intermission', 'Final/OT', 'Top 7th'"},
+        "startsAt": {"type": "string", "format": "date-time", "description": "UTC"},
+        "localStart": {"type": "string", "format": "date-time", "description": "Start in the requested timezone, with offset"},
+        "period": {"type": "integer", "description": "Quarter, period, half or inning (live and final games)"},
+        "periodType": {"type": "string", "enum": ["REGULATION", "OVERTIME", "SHOOTOUT", "EXTRA_TIME", "PENALTIES", "EXTRA_INNINGS"]},
+        "clock": {"type": "string", "description": "Game clock, live games only"},
+        "home": {"$ref": "#/$defs/Side"},
+        "away": {"$ref": "#/$defs/Side"},
+        "venue": {"type": "string"},
+        "broadcasts": {"type": "array", "items": {"type": "string"}},
+        "situation": {"$ref": "#/$defs/Situation"},
+        "source": {"type": "string"},
+        "fetchedAt": {"type": "string", "format": "date-time", "description": "When this state was fetched from upstream"}
+      }
+    },
+    "Meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sources", "asOf", "isStale"],
+      "properties": {
+        "sources": {"type": "array", "items": {"type": "string"}},
+        "asOf": {"type": "string", "format": "date-time", "description": "When the oldest returned data was fetched"},
+        "isStale": {"type": "boolean", "description": "Some data is older than it should be because upstream is slow or unavailable"},
+        "staleReason": {"type": "string"},
+        "attribution": {"type": "string"},
+        "timezone": {"type": "string", "description": "Timezone used for dates and localStart"},
+        "count": {"type": "integer"},
+        "truncated": {"type": "boolean", "description": "More results matched than the limit"}
+      }
+    },
+    "Error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["error"],
+      "properties": {
+        "error": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code", "message"],
+          "properties": {
+            "code": {"type": "string", "enum": ["invalid_argument", "ambiguous_team", "team_not_found", "game_not_found", "not_found", "rate_limited", "internal"]},
+            "message": {"type": "string"},
+            "details": {"type": "object"}
+          }
+        }
+      }
+    }
+  }
+}

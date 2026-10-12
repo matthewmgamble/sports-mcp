@@ -1,0 +1,192 @@
+{
+  "$comment": "MCP tool definitions. 'output' names the response data shape: list:<Def> or one:<Def> from schemas.json.",
+  "tools": [
+    {
+      "name": "sports_list_leagues",
+      "title": "List leagues",
+      "description": "List the leagues this server covers, with the league ids other tools take.",
+      "output": "list:League",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      }
+    },
+    {
+      "name": "sports_list_teams",
+      "title": "Find teams",
+      "description": "Find teams by name, city, abbreviation or nickname (e.g. 'leafs', 'Green Bay'), or list a league's teams. Returns canonical team ids like nhl:tor.",
+      "output": "list:Team",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "league": {
+            "type": "string",
+            "description": "League id (nfl, nhl, nba, mlb, ncaaf, ncaab, epl, laliga, bundesliga). Required unless search is given."
+          },
+          "search": {
+            "type": "string",
+            "description": "Name, city, abbreviation or nickname"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 400,
+            "description": "Max teams (default 50)"
+          }
+        }
+      }
+    },
+    {
+      "name": "sports_get_games",
+      "title": "Games and scores",
+      "description": "Schedule and scores for a league or team over a date range (defaults to today). Use for 'what games are on tonight', 'Saturday's results', 'Leafs games this week'. Live games are refreshed; times are UTC plus localStart in the requested timezone.",
+      "output": "list:Game",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "league": {
+            "type": "string",
+            "description": "League id. Required unless team is given."
+          },
+          "team": {
+            "type": "string",
+            "description": "Team id (nhl:tor) or name ('Maple Leafs'). Combine with league to disambiguate."
+          },
+          "date": {
+            "type": "string",
+            "description": "YYYY-MM-DD, today, tomorrow or yesterday. Default today."
+          },
+          "from": {
+            "type": "string",
+            "description": "Range start YYYY-MM-DD (inclusive), instead of date"
+          },
+          "to": {
+            "type": "string",
+            "description": "Range end YYYY-MM-DD (inclusive). Max 31 days."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "SCHEDULED",
+              "LIVE",
+              "FINAL",
+              "POSTPONED",
+              "SUSPENDED",
+              "CANCELLED",
+              "UNKNOWN"
+            ]
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone for dates and localStart, e.g. America/Toronto. Default America/New_York."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Max games (default 25)"
+          }
+        }
+      }
+    },
+    {
+      "name": "sports_get_live_scores",
+      "title": "Live scores",
+      "description": "Games in progress right now with current score, period and clock. Omit league for all leagues. Scores are near-live (seconds behind the broadcast).",
+      "output": "list:Game",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "league": {
+            "type": "string",
+            "description": "League id; omit for all leagues"
+          },
+          "team": {
+            "type": "string",
+            "description": "Only this team's game: id or name"
+          },
+          "refresh": {
+            "type": "boolean",
+            "description": "Bypass the normal freshness window (still rate-limited)"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone for localStart"
+          }
+        }
+      }
+    },
+    {
+      "name": "sports_get_game",
+      "title": "One game",
+      "description": "Current state of one game by id (from a games, live or schedule result).",
+      "output": "one:Game",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "gameId"
+        ],
+        "properties": {
+          "gameId": {
+            "type": "string",
+            "description": "Game id, e.g. nfl:401872994"
+          },
+          "refresh": {
+            "type": "boolean",
+            "description": "Bypass the normal freshness window (still rate-limited)"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone for localStart"
+          }
+        }
+      }
+    },
+    {
+      "name": "sports_get_team_schedule",
+      "title": "Team schedule",
+      "description": "A team's recent and upcoming games: by default its last 3 results and next 5 games. Use for 'when do the Leafs play next' or 'how did the Packers do last week'.",
+      "output": "list:Game",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "team"
+        ],
+        "properties": {
+          "team": {
+            "type": "string",
+            "description": "Team id (nhl:tor) or name ('Maple Leafs', 'Green Bay Packers')"
+          },
+          "league": {
+            "type": "string",
+            "description": "League id, to disambiguate a team name (e.g. 'kings' in nhl)"
+          },
+          "from": {
+            "type": "string",
+            "description": "Range start YYYY-MM-DD, instead of last 3 / next 5"
+          },
+          "to": {
+            "type": "string",
+            "description": "Range end YYYY-MM-DD (max 31 days)"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Max games for a range (default 20)"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone for dates and localStart"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,14 +1,12 @@
 package ca.hex42labs.sports;
 
-import static ca.hex42labs.sports.testing.WireMockFixtures.gz;
-import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import ca.hex42labs.sports.config.AppConfig;
 import ca.hex42labs.sports.domain.SyncState;
+import ca.hex42labs.sports.testing.FixtureUpstreams;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
@@ -22,7 +20,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -40,62 +37,16 @@ class ColdStartSyncTest {
     private static final HttpClient HTTP = HttpClient.newHttpClient();
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    private static final Map<String, String> ESPN =
-            Map.of(
-                    "football/nfl", "nfl",
-                    "basketball/nba", "nba",
-                    "football/college-football", "ncaaf",
-                    "basketball/mens-college-basketball", "ncaab",
-                    "soccer/eng.1", "epl",
-                    "soccer/esp.1", "laliga",
-                    "soccer/ger.1", "bundesliga");
-
-    private static final Map<String, String> ESPN_SCOREBOARD =
-            Map.of(
-                    "nfl", "espn/nfl/scoreboard-week6-scheduled",
-                    "nba", "espn/nba/scoreboard-20261021-scheduled",
-                    "ncaaf", "espn/ncaaf/scoreboard-20260912-fbs",
-                    "ncaab", "espn/ncaab/scoreboard-20260214-d1",
-                    "epl", "espn/epl/scoreboard-20260919-full-time",
-                    "laliga", "espn/laliga/scoreboard-20260920",
-                    "bundesliga", "espn/bundesliga/scoreboard-20260919");
-
     @TempDir Path tmp;
 
     private void stubUpstreams(WireMockRuntimeInfo wm) {
-        var mock = wm.getWireMock();
-        ESPN.forEach(
-                (path, league) -> {
-                    mock.register(
-                            get(urlPathEqualTo("/espn/" + path + "/scoreboard"))
-                                    .willReturn(gz(ESPN_SCOREBOARD.get(league))));
-                    mock.register(
-                            get(urlPathEqualTo("/espn/" + path + "/teams"))
-                                    .willReturn(gz("espn/" + league + "/teams")));
-                });
-        mock.register(
-                get(urlPathEqualTo("/nhl/standings/now")).willReturn(gz("nhl/standings-now")));
-        mock.register(
-                get(urlPathMatching("/nhl/schedule/.*"))
-                        .willReturn(gz("nhl/schedule-20261013-week")));
-        mock.register(get(urlPathEqualTo("/mlb/teams")).willReturn(gz("mlb/teams")));
-        mock.register(
-                get(urlPathEqualTo("/mlb/schedule"))
-                        .willReturn(gz("mlb/schedule-range-postseason")));
+        FixtureUpstreams.stub(wm);
     }
 
     private App app(WireMockRuntimeInfo wm, boolean background) {
-        Map<String, String> env = new HashMap<>();
-        env.put("PORT", "0");
-        env.put("MGMT_PORT", "0");
-        env.put("DB_PATH", tmp.resolve("cold.db").toString());
+        Map<String, String> env = FixtureUpstreams.env(wm, tmp.resolve("cold.db"));
         env.put("BACKGROUND_SYNC", String.valueOf(background));
         env.put("ADMIN_TOKEN", TOKEN);
-        // Some fixtures are months old (NCAAB is from Feb 2026); keep retention from deleting them.
-        env.put("RETENTION_FINISHED_DAYS", "400");
-        env.put("PROVIDER_ESPN_BASE_URL", wm.getHttpBaseUrl() + "/espn");
-        env.put("PROVIDER_NHL_BASE_URL", wm.getHttpBaseUrl() + "/nhl");
-        env.put("PROVIDER_MLB_BASE_URL", wm.getHttpBaseUrl() + "/mlb");
         return new App(AppConfig.fromMap(env), Clock.fixed(NOW, ZoneOffset.UTC)).start();
     }
 
