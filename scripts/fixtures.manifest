@@ -1,0 +1,50 @@
+# Deterministic upstream fixtures: <fixture path (no extension)>  <url>
+# Captured by `scripts/capture-fixtures.sh manifest` into src/test/resources/fixtures/<path>.json.gz
+# Historical IDs were found on 2026-10-12; see docs/upstream-contract.md for what each one covers.
+
+# ---- ESPN: NFL ----
+espn/nfl/scoreboard-week6-scheduled        https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=2026&seasontype=2&week=6
+espn/nfl/scoreboard-20260913-final-ot      https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=20260913
+espn/nfl/scoreboard-20260715-offseason     https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=20260715
+espn/nfl/teams                             https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams
+espn/nfl/team-schedule-gb                  https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/gb/schedule
+
+# ---- ESPN: NBA ----
+espn/nba/scoreboard-20261021-scheduled     https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261021
+espn/nba/scoreboard-20260801-offseason     https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20260801
+espn/nba/scoreboard-20260310-final         https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20260310
+espn/nba/teams                             https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams
+
+# ---- ESPN: college ----
+espn/ncaaf/scoreboard-20260912-multi-ot    https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates=20260912
+espn/ncaaf/scoreboard-20260912-fbs         https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates=20260912&groups=80&limit=300
+espn/ncaaf/teams                           https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams?limit=1000
+espn/ncaab/scoreboard-20260214-final       https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates=20260214
+espn/ncaab/scoreboard-20260214-d1          https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates=20260214&groups=50&limit=400
+espn/ncaab/teams                           https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams?limit=1000
+
+# ---- ESPN: soccer ----
+espn/epl/scoreboard-20260919-full-time     https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard?dates=20260919
+espn/epl/teams                             https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/teams
+espn/laliga/scoreboard-20260920            https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/scoreboard?dates=20260920
+espn/laliga/teams                          https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/teams
+espn/bundesliga/scoreboard-20260919        https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1/scoreboard?dates=20260919
+espn/bundesliga/teams                      https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1/teams
+
+# ---- NHL (api-web.nhle.com) ----
+nhl/score-20261010-ot-so                   https://api-web.nhle.com/v1/score/2026-10-10
+nhl/score-20261006-ot                      https://api-web.nhle.com/v1/score/2026-10-06
+nhl/score-20260715-offseason               https://api-web.nhle.com/v1/score/2026-07-15
+nhl/schedule-20261013-week                 https://api-web.nhle.com/v1/schedule/2026-10-13
+nhl/schedule-20260715-offseason            https://api-web.nhle.com/v1/schedule/2026-07-15
+nhl/standings-now                          https://api-web.nhle.com/v1/standings/now
+nhl/club-schedule-season-tor               https://api-web.nhle.com/v1/club-schedule-season/TOR/20262027
+
+# ---- MLB (statsapi.mlb.com) ----
+mlb/schedule-20260922-postponed            https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=2026-09-22&hydrate=linescore,team
+mlb/schedule-20260927-cancelled            https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=2026-09-27&hydrate=linescore,team
+mlb/schedule-20260902-extra-innings        https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=2026-09-02&hydrate=linescore,team
+mlb/schedule-range-postseason              https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=2026-10-01&endDate=2026-10-11&hydrate=linescore,team
+mlb/schedule-20270115-offseason            https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=2027-01-15&hydrate=linescore,team
+mlb/linescore-824312-extra-innings         https://statsapi.mlb.com/api/v1/game/824312/linescore
+mlb/teams                                  https://statsapi.mlb.com/api/v1/teams?sportId=1

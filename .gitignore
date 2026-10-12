@@ -1,0 +1,25 @@
+# Build
+target/
+*.class
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# OS
+.DS_Store
+
+# Local runtime data / secrets
+data/
+*.db
+*.db-shm
+*.db-wal
+.env
+!.env.example
+
+# Fixture capture scratch (curated fixtures live under src/test/resources)
+fixtures-raw/
