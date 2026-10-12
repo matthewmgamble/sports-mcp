@@ -2,9 +2,10 @@
 
 Sports scores, schedules and team information for AI agents (MCP) and regular apps (REST).
 
-> **Status: Sprint 2 (schedule ingestion).** Team catalogs and schedules (yesterday through
-> +14 days) for all nine leagues sync in the background and persist across restarts. MCP exposes
-> only `sports_ping` so far. See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) for the roadmap.
+> **Status: Sprint 3 (live scores).** Schedules sync in the background; live scores refresh
+> on demand with per-league-day request coalescing, rate limits, circuit breakers and stale
+> fallback. MCP exposes only `sports_ping` until Sprint 4.
+> See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) for the roadmap.
 
 **Leagues (planned MVP):** NFL, NHL, NBA, MLB, NCAA football, NCAA men's basketball, Premier League,
 La Liga, Bundesliga.

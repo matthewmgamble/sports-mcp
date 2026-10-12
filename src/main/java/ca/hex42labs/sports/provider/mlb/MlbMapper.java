@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /** MLB Stats API schedule JSON ({@code hydrate=linescore,team}) to domain objects. */
 final class MlbMapper {
@@ -118,17 +119,7 @@ final class MlbMapper {
                 if (detailed != null && !detailed.equals("In Progress")) {
                     yield detailed; // "Delayed: Rain", "Manager challenge", ...
                 }
-                String half = ls.path("inningState").asText("");
-                String ordinal = ls.path("currentInningOrdinal").asText("");
-                String prefix =
-                        switch (half) {
-                            case "Top" -> "Top";
-                            case "Bottom" -> "Bot";
-                            case "Middle" -> "Mid";
-                            case "End" -> "End";
-                            default -> "";
-                        };
-                yield (prefix + " " + ordinal).trim();
+                yield halfInning(ls);
             }
             case FINAL -> type == PeriodType.EXTRA_INNINGS ? detailed + "/" + inning : detailed;
             case POSTPONED, CANCELLED, SUSPENDED ->
@@ -137,6 +128,66 @@ final class MlbMapper {
                             : detailed;
             default -> detailed;
         };
+    }
+
+    /**
+     * Updates a live game from its per-game linescore: runs, inning and half-inning text. A
+     * delay/challenge status text from the schedule is kept; the linescore can't see those.
+     */
+    static Game applyLinescore(Game g, JsonNode ls, Instant fetchedAt) {
+        if (g.status() != GameStatus.LIVE || !ls.hasNonNull("currentInning")) {
+            return g;
+        }
+        int inning = ls.path("currentInning").asInt();
+        int scheduled = ls.path("scheduledInnings").asInt(9);
+        String half = halfInning(ls);
+        boolean showsInning =
+                g.statusDetail() == null || HALF_INNING.matcher(g.statusDetail()).matches();
+        JsonNode teams = ls.path("teams");
+        return new Game(
+                g.id(),
+                g.league(),
+                g.provider(),
+                g.providerEventId(),
+                g.season(),
+                g.seasonType(),
+                g.homeTeamId(),
+                g.awayTeamId(),
+                g.startsAt(),
+                g.status(),
+                showsInning && !half.isEmpty() ? half : g.statusDetail(),
+                inning,
+                inning > scheduled ? PeriodType.EXTRA_INNINGS : PeriodType.REGULATION,
+                g.clock(),
+                teams.path("home").hasNonNull("runs")
+                        ? teams.path("home").path("runs").asInt()
+                        : g.homeScore(),
+                teams.path("away").hasNonNull("runs")
+                        ? teams.path("away").path("runs").asInt()
+                        : g.awayScore(),
+                g.homeShootout(),
+                g.awayShootout(),
+                g.venue(),
+                g.broadcasts(),
+                g.situation(),
+                fetchedAt,
+                g.providerUpdatedAt());
+    }
+
+    private static final Pattern HALF_INNING =
+            Pattern.compile("(Top|Bot|Mid|End) \\d+(st|nd|rd|th)");
+
+    /** "Top 7th" from a linescore (or a hydrated schedule linescore). */
+    static String halfInning(JsonNode ls) {
+        String prefix =
+                switch (ls.path("inningState").asText("")) {
+                    case "Top" -> "Top";
+                    case "Bottom" -> "Bot";
+                    case "Middle" -> "Mid";
+                    case "End" -> "End";
+                    default -> "";
+                };
+        return (prefix + " " + ls.path("currentInningOrdinal").asText("")).trim();
     }
 
     /** Prefer the team's {@code score}; the linescore's runs are a fallback. */

@@ -1,9 +1,11 @@
 package ca.hex42labs.sports.provider;
 
+import ca.hex42labs.sports.domain.Game;
 import ca.hex42labs.sports.domain.League;
 import ca.hex42labs.sports.domain.Team;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * A source of sports data for one or more leagues. Implementations translate provider payloads into
@@ -32,4 +34,18 @@ public interface SportsProvider {
      */
     ScheduleResult fetchSchedule(League league, LocalDate from, LocalDate to)
             throws ProviderException;
+
+    /**
+     * A fresher view of one live game than its scoreboard gives, if the provider has one (MLB's
+     * per-game linescore; the schedule's hydrated linescore is CDN-cached and lags). Empty when the
+     * scoreboard is already as fresh as it gets.
+     */
+    default Optional<Game> refreshGame(League league, Game game) throws ProviderException {
+        return Optional.empty();
+    }
+
+    /** Whether {@link #refreshGame} is worth calling for live games. */
+    default boolean hasPerGameFeed() {
+        return false;
+    }
 }

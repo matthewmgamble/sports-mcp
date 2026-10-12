@@ -320,6 +320,13 @@ NHL schedule/score mappers, MLB schedule/linescore mappers with 406 fallback, `S
 **Acceptance:** after a cold start with no client traffic, D-1…D+14 games exist for all enabled leagues; postponed games update in place; empty off-season windows record success; restart preserves everything.
 
 ### Sprint 3: Live score coordinator (4–5 days)
+*Implementation notes (done 2026-10-12):*
+- **Refresh keys.** A refresh key is a league plus a **US-Eastern day bucket**, the Eastern date of the game's start. ESPN, NHL and MLB all slate by Eastern day, and no game in these leagues starts after midnight Eastern. That replaces Pulseboard's "also fetch yesterday before 3 AM" rule: a game that runs past midnight stays in yesterday's bucket.
+- **Coalescing.** Caffeine `AsyncCache` handles single-flight. A finished fetch (success *or* failure) is reused for the 5 s floor, which bounds `refresh=true` too.
+- **Freshness.** Each game's own `fetched_at` in SQLite is the source of truth, so there's no separate TTL cache to keep consistent.
+- **Resilience.** Rate limits and breakers wrap every provider: ESPN 5/s, NHL 3/s, MLB 2/s, and the breaker opens at 50% failures over 20 calls for 30 s. 4xx responses other than 429 don't trip it.
+- **Per-game feeds.** These are a provider capability (`hasPerGameFeed`); only MLB has one.
+- **Slow upstreams.** A request waits up to 6 s for upstream, then serves stale data marked "still waiting". The fetch completes in the background for the next request.
 `FreshnessPolicy`, Caffeine single-flight with variable expiry, late-game bucket logic, MLB per-game enrichment, Resilience4j limiters/breakers, stale fallback, `refresh=true` floor. Inject `java.time.Clock` everywhere.
 **Acceptance:** 100 concurrent requests for one league/date make **one** upstream call; with the breaker open, the last snapshot comes back marked stale; clock-driven tests cover TTL boundaries, game-start transitions, midnight rollover and the DST change (Nov 1, 2026).
 

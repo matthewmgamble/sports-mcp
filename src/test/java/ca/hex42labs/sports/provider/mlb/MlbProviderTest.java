@@ -17,6 +17,7 @@ import ca.hex42labs.sports.provider.ProviderException;
 import ca.hex42labs.sports.provider.ScheduleResult;
 import ca.hex42labs.sports.provider.UpstreamHttp;
 import ca.hex42labs.sports.testing.Fixtures;
+import ca.hex42labs.sports.testing.Games;
 import ca.hex42labs.sports.testing.TestLeagues;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -312,6 +313,90 @@ class MlbProviderTest {
                                 LocalDate.of(2027, 1, 29));
         assertThat(r.games()).isEmpty();
         assertThat(r.complete()).isTrue();
+    }
+
+    @Test
+    void perGameLinescoreUpdatesALiveGame(WireMockRuntimeInfo wm) throws Exception {
+        wm.getWireMock()
+                .register(
+                        get("/game/824312/linescore")
+                                .willReturn(gz("mlb/linescore-824312-extra-innings")));
+        Game scheduleView =
+                Games.live(
+                        Games.scheduled(
+                                "mlb:824312", "mlb:sea", "mlb:hou", NOW.minusSeconds(14_400), NOW),
+                        5,
+                        5,
+                        null,
+                        NOW.minusSeconds(60));
+        scheduleView = withDetail(scheduleView, "Top 11th");
+        Game fresh = provider(wm).refreshGame(TestLeagues.get("mlb"), scheduleView).orElseThrow();
+        assertThat(fresh.homeScore()).isEqualTo(6);
+        assertThat(fresh.awayScore()).isEqualTo(5);
+        assertThat(fresh.period()).isEqualTo(11);
+        assertThat(fresh.periodType()).isEqualTo(PeriodType.EXTRA_INNINGS);
+        assertThat(fresh.statusDetail()).isEqualTo("Bot 11th");
+        assertThat(fresh.fetchedAt()).isEqualTo(NOW);
+        assertThat(fresh.status())
+                .isEqualTo(GameStatus.LIVE); // status comes from the scoreboard, not here
+    }
+
+    @Test
+    void perGameLinescoreKeepsDelayText() {
+        Game delayed =
+                withDetail(
+                        Games.live(
+                                Games.scheduled("mlb:824312", "mlb:sea", "mlb:hou", NOW, NOW),
+                                1,
+                                0,
+                                null,
+                                NOW),
+                        "Delayed: Rain");
+        Game fresh =
+                MlbMapper.applyLinescore(
+                        delayed, Fixtures.json("mlb/linescore-824312-extra-innings"), NOW);
+        assertThat(fresh.statusDetail()).isEqualTo("Delayed: Rain");
+        assertThat(fresh.homeScore()).isEqualTo(6);
+    }
+
+    @Test
+    void perGameRefreshSkipsGamesNotLive(WireMockRuntimeInfo wm) throws Exception {
+        Game fin =
+                Games.rescheduled(
+                        Games.scheduled("mlb:824312", "mlb:sea", "mlb:hou", NOW, NOW),
+                        NOW,
+                        GameStatus.FINAL,
+                        NOW);
+        assertThat(provider(wm).refreshGame(TestLeagues.get("mlb"), fin)).isEmpty();
+        wm.getWireMock().verifyThat(0, getRequestedFor(urlPathEqualTo("/game/824312/linescore")));
+        assertThat(provider(wm).hasPerGameFeed()).isTrue();
+    }
+
+    private static Game withDetail(Game g, String detail) {
+        return new Game(
+                g.id(),
+                g.league(),
+                "mlb",
+                g.providerEventId(),
+                g.season(),
+                g.seasonType(),
+                g.homeTeamId(),
+                g.awayTeamId(),
+                g.startsAt(),
+                g.status(),
+                detail,
+                g.period(),
+                g.periodType(),
+                g.clock(),
+                g.homeScore(),
+                g.awayScore(),
+                null,
+                null,
+                g.venue(),
+                g.broadcasts(),
+                null,
+                g.fetchedAt(),
+                null);
     }
 
     @Test

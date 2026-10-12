@@ -10,7 +10,11 @@ public class ProviderException extends Exception {
         /** Connection refused, reset, DNS, TLS... */
         NETWORK,
         /** Body wasn't the JSON we expected. */
-        PARSE
+        PARSE,
+        /** Our own per-provider rate limit refused the call (upstream not contacted). */
+        RATE_LIMITED,
+        /** Circuit breaker is open after repeated failures (upstream not contacted). */
+        CIRCUIT_OPEN
     }
 
     private final String provider;

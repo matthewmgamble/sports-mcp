@@ -133,6 +133,33 @@ public final class GameRepository {
                 limit);
     }
 
+    public List<Game> findByIds(Collection<String> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        String marks = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
+        return query(
+                "SELECT " + COLUMNS + " FROM games WHERE id IN (" + marks + ")", ids.toArray());
+    }
+
+    /**
+     * Games that may be in progress: LIVE (started after {@code liveSince}, so a game stuck LIVE
+     * upstream doesn't haunt us forever), or not yet final and starting in {@code [from, to)}.
+     */
+    public List<Game> findActive(String league, Instant from, Instant to, Instant liveSince) {
+        return query(
+                "SELECT "
+                        + COLUMNS
+                        + " FROM games WHERE league = ? AND ("
+                        + " (status = 'LIVE' AND starts_at >= ?)"
+                        + " OR (status IN ('SCHEDULED', 'UNKNOWN', 'SUSPENDED') AND starts_at >= ? AND starts_at < ?))"
+                        + " ORDER BY starts_at, id",
+                league,
+                Timestamps.format(liveSince),
+                Timestamps.format(from),
+                Timestamps.format(to));
+    }
+
     /** Deletes games that started before {@code cutoff}. @return rows deleted */
     public int deleteStartedBefore(Instant cutoff) {
         try (Connection c = db.write();

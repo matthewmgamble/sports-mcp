@@ -2,7 +2,9 @@ package ca.hex42labs.sports;
 
 import ca.hex42labs.sports.api.admin.ManagementServer;
 import ca.hex42labs.sports.api.mcp.McpServerFactory;
+import ca.hex42labs.sports.application.FreshnessPolicy;
 import ca.hex42labs.sports.application.ScheduleSync;
+import ca.hex42labs.sports.application.ScoreRefreshCoordinator;
 import ca.hex42labs.sports.application.SyncPlanner;
 import ca.hex42labs.sports.application.TeamAliases;
 import ca.hex42labs.sports.application.TeamCatalog;
@@ -14,6 +16,7 @@ import ca.hex42labs.sports.persistence.GameRepository;
 import ca.hex42labs.sports.persistence.SyncStateRepository;
 import ca.hex42labs.sports.persistence.TeamRepository;
 import ca.hex42labs.sports.provider.Providers;
+import ca.hex42labs.sports.provider.ResilientProvider;
 import ca.hex42labs.sports.provider.UpstreamHttp;
 import ca.hex42labs.sports.provider.espn.EspnProvider;
 import ca.hex42labs.sports.provider.mlb.MlbProvider;
@@ -45,6 +48,8 @@ public final class App implements AutoCloseable {
     private final TeamResolver teamResolver;
     private final GameRepository games;
     private final ScheduleSync schedules;
+    private final List<ResilientProvider> resilient;
+    private final ScoreRefreshCoordinator scores;
     private final ManagementServer management;
     private final BackgroundJobs jobs;
     private final McpServerFactory.Mcp mcp;
@@ -57,12 +62,13 @@ public final class App implements AutoCloseable {
         this.leagues = LeagueRegistry.standard(config.enabledLeagues());
 
         UpstreamHttp http = UpstreamHttp.withDefaults(json, config.userAgent());
-        Providers providers =
-                new Providers(
-                        List.of(
-                                new EspnProvider(http, config.espnBaseUrl(), clock),
-                                new NhlProvider(http, config.nhlBaseUrl(), clock),
-                                new MlbProvider(http, config.mlbBaseUrl(), clock)));
+        // Every upstream call (background or on-demand) goes through a rate limiter and breaker.
+        this.resilient =
+                List.of(
+                        ResilientProvider.wrap(new EspnProvider(http, config.espnBaseUrl(), clock)),
+                        ResilientProvider.wrap(new NhlProvider(http, config.nhlBaseUrl(), clock)),
+                        ResilientProvider.wrap(new MlbProvider(http, config.mlbBaseUrl(), clock)));
+        Providers providers = new Providers(List.copyOf(resilient));
         this.games = new GameRepository(db, json);
         SyncStateRepository syncState = new SyncStateRepository(db);
         this.teams =
@@ -78,6 +84,24 @@ public final class App implements AutoCloseable {
         this.schedules =
                 new ScheduleSync(
                         providers, games, teams, syncState, clock, config.syncHorizonDays());
+        this.scores =
+                new ScoreRefreshCoordinator(
+                        leagues,
+                        providers,
+                        games,
+                        teams,
+                        new FreshnessPolicy(
+                                new FreshnessPolicy.Settings(
+                                        Duration.ofSeconds(config.freshLiveSeconds()),
+                                        Duration.ofSeconds(config.freshPregameSeconds()),
+                                        Duration.ofSeconds(30),
+                                        Duration.ofSeconds(config.freshRecentFinalSeconds()),
+                                        Duration.ofSeconds(config.freshEmptySeconds()))),
+                        clock,
+                        new ScoreRefreshCoordinator.Settings(
+                                Duration.ofSeconds(config.refreshFloorSeconds()),
+                                Duration.ofSeconds(6),
+                                config.syncHorizonDays()));
         this.jobs =
                 config.backgroundSync()
                         ? new BackgroundJobs(
@@ -99,7 +123,8 @@ public final class App implements AutoCloseable {
                         teams,
                         schedules,
                         syncState,
-                        games);
+                        games,
+                        resilient);
 
         this.mcp = McpServerFactory.create(config, json, clock);
 
@@ -173,6 +198,14 @@ public final class App implements AutoCloseable {
         return schedules;
     }
 
+    public ScoreRefreshCoordinator scores() {
+        return scores;
+    }
+
+    public List<ResilientProvider> providers() {
+        return resilient;
+    }
+
     public int managementPort() {
         return management.port();
     }
@@ -184,6 +217,7 @@ public final class App implements AutoCloseable {
         }
         management.close();
         http.stop();
+        scores.close();
         mcp.close();
         db.close();
     }

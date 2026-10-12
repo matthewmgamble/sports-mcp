@@ -194,6 +194,23 @@ public final class MlbProvider implements SportsProvider {
         return result.build(clock.instant());
     }
 
+    @Override
+    public boolean hasPerGameFeed() {
+        return true;
+    }
+
+    /** Live games only: {@code game/{pk}/linescore} is ~1 KB and current. */
+    @Override
+    public Optional<Game> refreshGame(League league, Game game) throws ProviderException {
+        if (game.status() != ca.hex42labs.sports.domain.GameStatus.LIVE) {
+            return Optional.empty();
+        }
+        JsonNode ls =
+                http.getJson(
+                        ID, URI.create(baseUrl + "/game/" + game.providerEventId() + "/linescore"));
+        return Optional.of(MlbMapper.applyLinescore(game, ls, clock.instant()));
+    }
+
     private static List<Game> mapSchedule(
             JsonNode root, Instant fetchedAt, Map<String, Team> teams) {
         List<Game> games = new ArrayList<>();

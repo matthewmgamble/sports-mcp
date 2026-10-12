@@ -135,6 +135,10 @@ class ColdStartSyncTest {
                             SyncState.Kind.SCHEDULE);
             assertThat(nfl.path("windowStart").asText()).isEqualTo("2026-10-11");
             assertThat(nfl.path("windowEnd").asText()).isEqualTo("2026-10-26");
+            JsonNode breakers = admin(app, "GET", "/admin/sync-state").path("circuitBreakers");
+            assertThat(breakers.path("espn").asText()).isEqualTo("CLOSED");
+            assertThat(breakers.path("nhl").asText()).isEqualTo("CLOSED");
+            assertThat(breakers.path("mlb").asText()).isEqualTo("CLOSED");
             // ESPN: one request per day in the 16-day window.
             wm.getWireMock()
                     .verifyThat(

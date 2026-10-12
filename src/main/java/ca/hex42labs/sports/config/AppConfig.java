@@ -25,6 +25,11 @@ public record AppConfig(
         int syncHorizonDays,
         int retentionFinishedDays,
         String adminToken,
+        int freshLiveSeconds,
+        int freshPregameSeconds,
+        int freshRecentFinalSeconds,
+        int freshEmptySeconds,
+        int refreshFloorSeconds,
         String version) {
 
     public static final String REPO_URL = "https://github.com/matthewmgamble/sports-mcp";
@@ -58,6 +63,14 @@ public record AppConfig(
                 Integer.parseInt(get(env, "RETENTION_FINISHED_DAYS", "90")),
                 // Bearer token for /admin/* on the management port. Blank disables admin.
                 get(env, "ADMIN_TOKEN", ""),
+                // Max data age before a request refreshes it (see FreshnessPolicy).
+                Integer.parseInt(get(env, "FRESH_LIVE_SECONDS", "15")),
+                Integer.parseInt(get(env, "FRESH_PREGAME_SECONDS", "60")),
+                Integer.parseInt(get(env, "FRESH_RECENT_FINAL_SECONDS", "300")),
+                Integer.parseInt(get(env, "FRESH_EMPTY_SECONDS", "120")),
+                // Minimum gap between upstream fetches of the same scoreboard, even with
+                // refresh=true.
+                Integer.parseInt(get(env, "REFRESH_FLOOR_SECONDS", "5")),
                 AppConfig.class.getPackage().getImplementationVersion() != null
                         ? AppConfig.class.getPackage().getImplementationVersion()
                         : "dev");

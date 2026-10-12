@@ -7,6 +7,7 @@ import ca.hex42labs.sports.domain.League;
 import ca.hex42labs.sports.domain.SyncState;
 import ca.hex42labs.sports.persistence.GameRepository;
 import ca.hex42labs.sports.persistence.SyncStateRepository;
+import ca.hex42labs.sports.provider.ResilientProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.javalin.Javalin;
 import io.javalin.http.BadRequestResponse;
@@ -53,7 +54,8 @@ public final class ManagementServer implements AutoCloseable {
             TeamCatalog teams,
             ScheduleSync schedules,
             SyncStateRepository syncState,
-            GameRepository games) {
+            GameRepository games,
+            java.util.List<ResilientProvider> providers) {
         this.host = host;
         byte[] token = adminToken.getBytes(StandardCharsets.UTF_8);
         this.http =
@@ -73,7 +75,9 @@ public final class ManagementServer implements AutoCloseable {
                                                     Map.of(
                                                             "syncState", syncState.findAll(),
                                                             "gamesByLeague", games.countByLeague(),
-                                                            "teams", teams.all().size())));
+                                                            "teams", teams.all().size(),
+                                                            "circuitBreakers",
+                                                                    breakers(providers))));
                             cfg.routes.post(
                                     "/admin/resync",
                                     ctx -> ctx.json(resync(ctx, leagues, teams, schedules)));
@@ -87,6 +91,12 @@ public final class ManagementServer implements AutoCloseable {
 
     public int port() {
         return http.port();
+    }
+
+    private static Map<String, String> breakers(java.util.List<ResilientProvider> providers) {
+        Map<String, String> out = new LinkedHashMap<>();
+        providers.forEach(p -> out.put(p.id(), p.breaker().getState().name()));
+        return out;
     }
 
     private static void authorize(Context ctx, byte[] token) {

@@ -1,5 +1,6 @@
 package ca.hex42labs.sports.testing;
 
+import ca.hex42labs.sports.domain.Game;
 import ca.hex42labs.sports.domain.League;
 import ca.hex42labs.sports.domain.Team;
 import ca.hex42labs.sports.provider.ProviderBatch;
@@ -10,6 +11,7 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -23,6 +25,24 @@ public class FakeProvider implements SportsProvider {
     private volatile ProviderException scheduleFailure;
     public final AtomicInteger teamCalls = new AtomicInteger();
 
+    /** Scripted scoreboard: (league, bucket) to batch, or throw. */
+    public interface ScoreboardFn {
+        ProviderBatch apply(League league, LocalDate bucket) throws ProviderException;
+    }
+
+    public interface RefreshGameFn {
+        Optional<Game> apply(Game game) throws ProviderException;
+    }
+
+    private volatile ScoreboardFn scoreboard;
+    private volatile RefreshGameFn refreshGame;
+
+    /** Every fetchScoreboard call as "league@date". */
+    public final List<String> scoreboardCalls = new CopyOnWriteArrayList<>();
+
+    /** Every refreshGame call, by game id. */
+    public final List<String> refreshGameCalls = new CopyOnWriteArrayList<>();
+
     /** Every fetchSchedule window requested, as "league from..to". */
     public final List<String> scheduleCalls = new CopyOnWriteArrayList<>();
 
@@ -32,6 +52,16 @@ public class FakeProvider implements SportsProvider {
 
     public FakeProvider teams(String league, List<Team> value) {
         teams.put(league, value);
+        return this;
+    }
+
+    public FakeProvider scoreboard(ScoreboardFn fn) {
+        this.scoreboard = fn;
+        return this;
+    }
+
+    public FakeProvider refreshGame(RefreshGameFn fn) {
+        this.refreshGame = fn;
         return this;
     }
 
@@ -63,8 +93,23 @@ public class FakeProvider implements SportsProvider {
     }
 
     @Override
-    public ProviderBatch fetchScoreboard(League league, LocalDate bucket) {
-        throw new UnsupportedOperationException();
+    public ProviderBatch fetchScoreboard(League league, LocalDate bucket) throws ProviderException {
+        scoreboardCalls.add(league.id() + "@" + bucket);
+        if (scoreboard == null) {
+            throw new UnsupportedOperationException("no scoreboard scripted");
+        }
+        return scoreboard.apply(league, bucket);
+    }
+
+    @Override
+    public boolean hasPerGameFeed() {
+        return refreshGame != null;
+    }
+
+    @Override
+    public Optional<Game> refreshGame(League league, Game game) throws ProviderException {
+        refreshGameCalls.add(game.id());
+        return refreshGame == null ? Optional.empty() : refreshGame.apply(game);
     }
 
     @Override
