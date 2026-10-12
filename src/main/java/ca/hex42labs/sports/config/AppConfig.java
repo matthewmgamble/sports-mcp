@@ -30,6 +30,14 @@ public record AppConfig(
         int freshRecentFinalSeconds,
         int freshEmptySeconds,
         int refreshFloorSeconds,
+        int rateLimitPerMinute,
+        int rateLimitBurst,
+        int rateLimitRefreshPerMinute,
+        int rateLimitKeyedMultiplier,
+        List<String> apiKeysSha256,
+        List<String> trustedProxyCidrs,
+        int maxConcurrentRequests,
+        int upstreamTimeoutMillis,
         String version) {
 
     public static final String REPO_URL = "https://github.com/matthewmgamble/sports-mcp";
@@ -71,6 +79,17 @@ public record AppConfig(
                 // Minimum gap between upstream fetches of the same scoreboard, even with
                 // refresh=true.
                 Integer.parseInt(get(env, "REFRESH_FLOOR_SECONDS", "5")),
+                // Public-port protection (per client: API key if valid, else IP).
+                Integer.parseInt(get(env, "RATE_LIMIT_PER_MIN", "60")),
+                Integer.parseInt(get(env, "RATE_LIMIT_BURST", "20")),
+                Integer.parseInt(get(env, "RATE_LIMIT_REFRESH_PER_MIN", "6")),
+                Integer.parseInt(get(env, "RATE_LIMIT_KEYED_MULTIPLIER", "10")),
+                // SHA-256 hex of issued API keys: echo -n "$KEY" | shasum -a 256
+                csv(get(env, "API_KEYS_SHA256", "")),
+                // Only peers in these ranges may set CF-Connecting-IP / X-Forwarded-For.
+                csv(get(env, "TRUSTED_PROXY_CIDRS", "")),
+                Integer.parseInt(get(env, "MAX_CONCURRENT_REQUESTS", "200")),
+                Integer.parseInt(get(env, "UPSTREAM_TIMEOUT_MS", "5000")),
                 AppConfig.class.getPackage().getImplementationVersion() != null
                         ? AppConfig.class.getPackage().getImplementationVersion()
                         : "dev");

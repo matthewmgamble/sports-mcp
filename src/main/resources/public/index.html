@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sports-mcp: scores and schedules for AI agents</title>
+<meta name="description" content="Free MCP server and REST API for live scores, schedules and teams: NFL, NHL, NBA, MLB, NCAA, Premier League, La Liga, Bundesliga.">
+<style>
+  :root { color-scheme: light dark; --fg: #1d1d1f; --muted: #5f6368; --bg: #fff; --card: #f5f5f7; --accent: #0b6bcb; }
+  @media (prefers-color-scheme: dark) { :root { --fg: #f2f2f2; --muted: #a0a4a8; --bg: #111214; --card: #1c1d20; --accent: #5aa9ff; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--fg); background: var(--bg); }
+  main { max-width: 760px; margin: 0 auto; padding: 48px 20px 64px; }
+  h1 { font-size: 2rem; margin: 0 0 4px; letter-spacing: -0.02em; }
+  h2 { font-size: 1.1rem; margin: 36px 0 10px; }
+  p.lede { color: var(--muted); margin: 0 0 28px; font-size: 1.08rem; }
+  pre, code { font: 0.9rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre { background: var(--card); padding: 14px 16px; border-radius: 10px; overflow-x: auto; margin: 8px 0; }
+  code { background: var(--card); padding: 1px 5px; border-radius: 5px; }
+  pre code { background: none; padding: 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+  td { padding: 7px 10px 7px 0; border-bottom: 1px solid var(--card); vertical-align: top; }
+  td:first-child { white-space: nowrap; }
+  a { color: var(--accent); }
+  .muted { color: var(--muted); font-size: 0.9rem; }
+  .leagues { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .leagues li { background: var(--card); border-radius: 999px; padding: 3px 11px; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>sports-mcp</h1>
+  <p class="lede">Live scores, schedules and teams for AI agents (MCP) and apps (REST). Free and open source.</p>
+
+  <ul class="leagues">
+    <li>NFL</li><li>NHL</li><li>NBA</li><li>MLB</li><li>NCAA Football</li><li>NCAA Men's Basketball</li>
+    <li>Premier League</li><li>La Liga</li><li>Bundesliga</li>
+  </ul>
+
+  <h2>Connect an MCP client</h2>
+  <p>Streamable HTTP endpoint, no sign-up:</p>
+  <pre><code id="mcp-url">https://YOUR-HOST/mcp</code></pre>
+  <p>Claude Code:</p>
+  <pre><code id="claude-cmd">claude mcp add --transport http sports https://YOUR-HOST/mcp</code></pre>
+  <p class="muted">Other clients: add a remote MCP server with the URL above.</p>
+
+  <h2>Tools</h2>
+  <table>
+    <tr><td><code>sports_get_live_scores</code></td><td>Games in progress now, with score, period and clock</td></tr>
+    <tr><td><code>sports_get_games</code></td><td>A league's or team's games for a day or date range</td></tr>
+    <tr><td><code>sports_get_team_schedule</code></td><td>A team's last 3 results and next 5 games</td></tr>
+    <tr><td><code>sports_get_game</code></td><td>One game by id</td></tr>
+    <tr><td><code>sports_list_teams</code></td><td>Find teams by name, city or nickname ("leafs")</td></tr>
+    <tr><td><code>sports_list_leagues</code></td><td>Leagues covered</td></tr>
+  </table>
+
+  <h2>REST</h2>
+  <pre><code id="rest-examples">curl "https://YOUR-HOST/api/v1/games/live"
+curl "https://YOUR-HOST/api/v1/teams/leafs/schedule"
+curl "https://YOUR-HOST/api/v1/games?league=nfl&amp;date=today&amp;tz=America/Toronto"</code></pre>
+  <p>Full reference: <a href="/openapi.json">OpenAPI 3.1</a>. Every response is <code>{data, meta}</code>;
+     <code>meta.isStale</code> tells you when upstream data couldn't be refreshed.</p>
+
+  <h2>Fair use</h2>
+  <p>Anonymous use is rate-limited per client (about 60 requests a minute). Scores are near-live and can trail
+     the broadcast by several seconds. Want to run your own? It's a single Docker container:
+     <a href="https://github.com/matthewmgamble/sports-mcp">github.com/matthewmgamble/sports-mcp</a>.</p>
+
+  <h2>Data and attribution</h2>
+  <p class="muted">Data comes from unofficial, undocumented public endpoints operated by ESPN, the NHL and
+     MLB Advanced Media. This service is not affiliated with or endorsed by them, the data may be
+     incomplete or delayed, and it is provided as-is with no warranty. MLB data &copy; MLB Advanced Media, L.P.
+     Team names and logos belong to their owners. Access logs store only a daily-rotating hash of your IP.</p>
+</main>
+<script>
+  // Show this deployment's real URLs.
+  const base = window.location.origin;
+  for (const id of ["mcp-url", "claude-cmd", "rest-examples"]) {
+    const el = document.getElementById(id);
+    el.textContent = el.textContent.replaceAll("https://YOUR-HOST", base);
+  }
+</script>
+</body>
+</html>

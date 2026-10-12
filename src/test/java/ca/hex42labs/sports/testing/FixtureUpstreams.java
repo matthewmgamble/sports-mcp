@@ -82,6 +82,10 @@ public final class FixtureUpstreams {
         env.put("BACKGROUND_SYNC", "false");
         // Some fixtures are months old (NCAAB is from Feb 2026); keep retention from deleting them.
         env.put("RETENTION_FINISHED_DAYS", "400");
+        // Functional tests make many calls from one IP; rate limiting has its own tests.
+        env.put("RATE_LIMIT_PER_MIN", "100000");
+        env.put("RATE_LIMIT_BURST", "100000");
+        env.put("RATE_LIMIT_REFRESH_PER_MIN", "100000");
         env.put("PROVIDER_ESPN_BASE_URL", wm.getHttpBaseUrl() + "/espn");
         env.put("PROVIDER_NHL_BASE_URL", wm.getHttpBaseUrl() + "/nhl");
         env.put("PROVIDER_MLB_BASE_URL", wm.getHttpBaseUrl() + "/mlb");

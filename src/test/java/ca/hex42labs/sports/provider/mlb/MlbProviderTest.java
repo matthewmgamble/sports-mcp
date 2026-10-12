@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -48,7 +49,8 @@ class MlbProviderTest {
         return new MlbProvider(
                 UpstreamHttp.withDefaults(new ObjectMapper(), "test"),
                 wm.getHttpBaseUrl(),
-                Clock.fixed(NOW, ZoneOffset.UTC));
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                Duration.ZERO);
     }
 
     /** Maps every game in a schedule fixture. */
@@ -282,6 +284,35 @@ class MlbProviderTest {
         assertThat(r.complete()).isTrue();
         assertThat(byId(r.games(), "mlb:824785").status()).isEqualTo(GameStatus.FINAL);
         assertThat(r.games().size()).isGreaterThan(20);
+    }
+
+    @Test
+    void fallbackStopsAtTheFirstThrottledDay(WireMockRuntimeInfo wm) throws Exception {
+        wm.getWireMock()
+                .register(
+                        get(urlPathEqualTo("/schedule"))
+                                .withQueryParam("startDate", equalTo("2026-09-22"))
+                                .willReturn(aResponse().withStatus(406)));
+        wm.getWireMock()
+                .register(
+                        get(urlPathEqualTo("/schedule"))
+                                .withQueryParam("date", equalTo("2026-09-22"))
+                                .willReturn(gz("mlb/schedule-20260922-postponed")));
+        wm.getWireMock()
+                .register(
+                        get(urlPathEqualTo("/schedule"))
+                                .withQueryParam("date", equalTo("2026-09-23"))
+                                .willReturn(aResponse().withStatus(406)));
+        ScheduleResult r =
+                provider(wm)
+                        .fetchSchedule(
+                                TestLeagues.get("mlb"),
+                                LocalDate.of(2026, 9, 22),
+                                LocalDate.of(2026, 9, 30));
+        assertThat(r.complete()).isFalse();
+        assertThat(r.games()).isNotEmpty(); // the 22nd still counts
+        // Range + the 22nd + the throttled 23rd; the 24th..30th aren't attempted.
+        assertThat(wm.getWireMock().find(getRequestedFor(urlPathEqualTo("/schedule")))).hasSize(3);
     }
 
     @Test

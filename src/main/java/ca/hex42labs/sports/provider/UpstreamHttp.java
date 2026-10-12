@@ -1,5 +1,6 @@
 package ca.hex42labs.sports.provider;
 
+import ca.hex42labs.sports.observability.SportsMetrics;
 import com.fasterxml.jackson.core.JacksonException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -48,6 +49,25 @@ public final class UpstreamHttp {
 
     /** GET {@code uri} and parse the body as JSON. */
     public JsonNode getJson(String provider, URI uri) throws ProviderException {
+        long start = System.nanoTime();
+        try {
+            JsonNode node = fetch(provider, uri);
+            SportsMetrics.upstream(
+                    provider, "ok", java.time.Duration.ofNanos(System.nanoTime() - start));
+            return node;
+        } catch (ProviderException e) {
+            String outcome =
+                    switch (e.kind()) {
+                        case HTTP_STATUS -> e.status() >= 500 ? "http_5xx" : "http_4xx";
+                        default -> e.kind().name().toLowerCase(java.util.Locale.ROOT);
+                    };
+            SportsMetrics.upstream(
+                    provider, outcome, java.time.Duration.ofNanos(System.nanoTime() - start));
+            throw e;
+        }
+    }
+
+    private JsonNode fetch(String provider, URI uri) throws ProviderException {
         HttpRequest request =
                 HttpRequest.newBuilder(uri)
                         .timeout(requestTimeout)

@@ -29,7 +29,7 @@ public final class ResilientProvider implements SportsProvider {
         public static Limits forProvider(String id) {
             return switch (id) {
                 // statsapi trips its edge limit on rapid bursts (Pulseboard saw 406s).
-                case "mlb" -> new Limits(2, Duration.ofSeconds(3), Duration.ofSeconds(30));
+                case "mlb" -> new Limits(1, Duration.ofSeconds(3), Duration.ofSeconds(30));
                 case "nhl" -> new Limits(3, Duration.ofSeconds(3), Duration.ofSeconds(30));
                 default -> new Limits(5, Duration.ofSeconds(3), Duration.ofSeconds(30));
             };
@@ -149,13 +149,14 @@ public final class ResilientProvider implements SportsProvider {
     }
 
     /**
-     * Timeouts, network errors, garbage bodies, 5xx and 429 mean upstream trouble. Other 4xx (e.g.
-     * ESPN's 400 for date ranges) mean our request was wrong; they don't trip the breaker.
+     * Timeouts, network errors, garbage bodies, 5xx and throttling (429, and statsapi's 406) mean
+     * upstream trouble. Other 4xx (e.g. ESPN's 400 for date ranges) mean our request was wrong;
+     * they don't trip the breaker.
      */
     static boolean isUpstreamFault(ProviderException e) {
         return switch (e.kind()) {
             case TIMEOUT, NETWORK, PARSE -> true;
-            case HTTP_STATUS -> e.status() >= 500 || e.status() == 429;
+            case HTTP_STATUS -> e.status() >= 500 || e.status() == 429 || e.status() == 406;
             case RATE_LIMITED, CIRCUIT_OPEN -> false;
         };
     }

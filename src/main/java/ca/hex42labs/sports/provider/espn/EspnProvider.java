@@ -63,7 +63,7 @@ public final class EspnProvider implements SportsProvider {
             try {
                 result.add(fetchScoreboard(league, day));
             } catch (ProviderException e) {
-                result.fail(day.toString(), e);
+                result.failDay(day, e);
             }
         }
         return result.build(clock.instant());

@@ -50,6 +50,30 @@ class AppEndToEndTest {
     }
 
     @Test
+    void startupIsAllOrNothing() throws Exception {
+        try (java.net.ServerSocket taken =
+                new java.net.ServerSocket(0, 50, java.net.InetAddress.getLoopbackAddress())) {
+            AppConfig cfg =
+                    AppConfig.fromMap(
+                            Map.of(
+                                    "PORT",
+                                    "0",
+                                    "MGMT_PORT",
+                                    String.valueOf(taken.getLocalPort()),
+                                    "DB_PATH",
+                                    tmp.resolve("bind.db").toString(),
+                                    "BACKGROUND_SYNC",
+                                    "false"));
+            App doomed = new App(cfg, Clock.fixed(NOW, ZoneOffset.UTC));
+            org.assertj.core.api.Assertions.assertThatThrownBy(doomed::start)
+                    .hasMessageContaining("Port already in use");
+            // The public listener was never left running.
+            org.assertj.core.api.Assertions.assertThatThrownBy(doomed::port)
+                    .isInstanceOf(RuntimeException.class);
+        }
+    }
+
+    @Test
     void healthEndpointsReportUp() throws Exception {
         assertThat(get("/health/live").statusCode()).isEqualTo(200);
         HttpResponse<String> ready = get("/health/ready");

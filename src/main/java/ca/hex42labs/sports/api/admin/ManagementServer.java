@@ -5,10 +5,12 @@ import ca.hex42labs.sports.application.TeamCatalog;
 import ca.hex42labs.sports.config.LeagueRegistry;
 import ca.hex42labs.sports.domain.League;
 import ca.hex42labs.sports.domain.SyncState;
+import ca.hex42labs.sports.observability.MetricsSetup;
 import ca.hex42labs.sports.persistence.GameRepository;
 import ca.hex42labs.sports.persistence.SyncStateRepository;
 import ca.hex42labs.sports.provider.ResilientProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.javalin.Javalin;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
@@ -16,8 +18,11 @@ import io.javalin.http.ForbiddenResponse;
 import io.javalin.http.NotFoundResponse;
 import io.javalin.http.UnauthorizedResponse;
 import io.javalin.json.JavalinJackson;
+import io.micrometer.core.instrument.Gauge;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
@@ -55,9 +60,11 @@ public final class ManagementServer implements AutoCloseable {
             ScheduleSync schedules,
             SyncStateRepository syncState,
             GameRepository games,
-            java.util.List<ResilientProvider> providers) {
+            java.util.List<ResilientProvider> providers,
+            MetricsSetup metrics) {
         this.host = host;
         byte[] token = adminToken.getBytes(StandardCharsets.UTF_8);
+        registerGauges(metrics, leagues, syncState, providers);
         this.http =
                 Javalin.create(
                         cfg -> {
@@ -67,6 +74,13 @@ public final class ManagementServer implements AutoCloseable {
                             cfg.jetty.host = host;
                             cfg.jetty.port = port;
                             cfg.routes.get("/health/live", ctx -> ctx.json(Map.of("status", "UP")));
+                            // Prometheus scrape (no auth: this listener is localhost/private only).
+                            cfg.routes.get(
+                                    "/metrics",
+                                    ctx ->
+                                            ctx.contentType(
+                                                            "text/plain; version=0.0.4; charset=utf-8")
+                                                    .result(metrics.scrape()));
                             cfg.routes.before("/admin/*", ctx -> authorize(ctx, token));
                             cfg.routes.get(
                                     "/admin/sync-state",
@@ -82,6 +96,51 @@ public final class ManagementServer implements AutoCloseable {
                                     "/admin/resync",
                                     ctx -> ctx.json(resync(ctx, leagues, teams, schedules)));
                         });
+    }
+
+    /**
+     * Gauges computed at scrape time from persisted state: how old each league's last good sync is
+     * (alert when schedule age grows) and each provider's breaker state.
+     */
+    private static void registerGauges(
+            MetricsSetup metrics,
+            LeagueRegistry leagues,
+            SyncStateRepository syncState,
+            java.util.List<ResilientProvider> providers) {
+        for (var league : leagues.enabled()) {
+            for (SyncState.Kind kind : SyncState.Kind.values()) {
+                Gauge.builder(
+                                "sports_sync_age_seconds",
+                                () -> syncAge(syncState, league.id(), kind))
+                        .description("Seconds since the last successful sync (-1 = never)")
+                        .tag("league", league.id())
+                        .tag("kind", kind.name())
+                        .register(metrics.registry());
+            }
+        }
+        for (ResilientProvider p : providers) {
+            Gauge.builder("sports_circuit_state", () -> breakerValue(p.breaker().getState()))
+                    .description("0 closed, 1 half-open, 2 open")
+                    .tag("provider", p.id())
+                    .register(metrics.registry());
+        }
+    }
+
+    private static double syncAge(
+            SyncStateRepository syncState, String league, SyncState.Kind kind) {
+        return syncState
+                .find(league, kind)
+                .map(SyncState::lastSuccessAt)
+                .map(t -> (double) Duration.between(t, Instant.now()).toSeconds())
+                .orElse(-1.0);
+    }
+
+    private static double breakerValue(CircuitBreaker.State s) {
+        return switch (s) {
+            case CLOSED, DISABLED, METRICS_ONLY -> 0;
+            case HALF_OPEN -> 1;
+            case OPEN, FORCED_OPEN -> 2;
+        };
     }
 
     public ManagementServer start() {
@@ -164,6 +223,6 @@ public final class ManagementServer implements AutoCloseable {
 
     @Override
     public void close() {
-        http.stop();
+        http.stop(); // safe on a server that never started
     }
 }

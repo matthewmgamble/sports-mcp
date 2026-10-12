@@ -98,7 +98,10 @@ final class NhlMapper {
             case "FUT", "PRE" -> GameStatus.SCHEDULED;
             case "LIVE", "CRIT" -> GameStatus.LIVE;
             case "FINAL", "OFF" -> GameStatus.FINAL;
-            default -> GameStatus.UNKNOWN;
+            default -> {
+                ca.hex42labs.sports.observability.SportsMetrics.unmappedStatus("nhl", gameState);
+                yield GameStatus.UNKNOWN;
+            }
         };
     }
 

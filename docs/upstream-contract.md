@@ -120,9 +120,30 @@ Verified against ESPN's NHL team list (`espn/nhl/teams` fixture); `NhlProviderTe
 | Purpose | Path | Notes |
 |---|---|---|
 | Schedule | `/schedule?sportId=1&date=YYYY-MM-DD&hydrate=linescore,team` | Single date is reliable |
-| Schedule range | `…&startDate=…&endDate=…` | Worked today; Pulseboard saw intermittent 406, so fall back to per-day |
+| Schedule range | `…&startDate=…&endDate=…` | Worked today; Pulseboard saw intermittent 406, so fall back to per-day (paced 1 s, stop at the first 406) |
 | Live linescore | `/game/{gamePk}/linescore` | ~1 KB, fresher than the schedule's hydrated linescore |
 | Teams | `/teams?sportId=1` | 30 teams; numeric ids → ESPN abbreviation via `MlbProvider.ESPN_ABBR` (MLB `AZ`/`CWS` are ESPN `ari`/`chw`; enforced against the `espn/mlb/teams` fixture) |
+
+### HTTP 406 depends on the client
+From the hosted server (appsrv01, a datacenter IP), statsapi answers **HTTP 406** `{"status":406,
+"error":"Not Acceptable"}` to most schedule requests other than today's date: ranges, single dates
+two or more days out, sometimes the game feed. This persisted after 20+ minutes of silence and at
+6 s spacing. The same requests from a home connection always succeed, and Pulseboard (same DC) only
+ever asks for today, so it never sees it. Rapid bursts also trigger it (Pulseboard's note).
+
+So MLB runs through `MlbWithEspnFallback`: statsapi first for everything (live path: day scoreboard
+plus `game/{pk}/linescore`), and any day statsapi refuses comes from ESPN's
+`baseball/mlb/scoreboard?dates=`. ESPN games are linked to statsapi gamePks in `game_links`
+(matched by home/away team and US-Eastern day; doubleheaders paired in start order, since statsapi
+gives game 2 a nominal time, e.g. BAL@NYY 2026-09-25 20:05/20:10 vs ESPN 20:05/23:30). Unmatched
+ESPN games get a provisional id `mlb:espn{eventId}` until statsapi sees them; that id keeps
+resolving afterwards. ESPN lists unseeded postseason games as TBD vs TBD; they're skipped. ESPN's
+team schedule takes the abbreviation (`teams/lad/schedule`). ESPN creates a new event id for a
+makeup game (TOR@BAL 2026-09-23 game 1 is `401923610`), where statsapi reuses the gamePk.
+
+Fixtures: `espn/mlb/scoreboard-20260925-doubleheaders` with `mlb/schedule-20260925-doubleheaders`,
+`espn/mlb/scoreboard-2026092{2,3}-*`, `espn/mlb/scoreboard-20261024-tbd`,
+`espn/mlb/team-schedule-lad`.
 
 ### Status values seen
 | abstractGameState | detailedState | codedGameState | statusCode | → normalised |

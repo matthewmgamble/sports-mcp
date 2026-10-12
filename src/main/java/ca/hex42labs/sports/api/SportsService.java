@@ -16,6 +16,7 @@ import ca.hex42labs.sports.domain.GameStatus;
 import ca.hex42labs.sports.domain.Ids;
 import ca.hex42labs.sports.domain.League;
 import ca.hex42labs.sports.domain.Team;
+import ca.hex42labs.sports.observability.SportsMetrics;
 import ca.hex42labs.sports.persistence.GameRepository;
 import java.time.Clock;
 import java.time.DateTimeException;
@@ -68,6 +69,15 @@ public final class SportsService {
     private final ScoreRefreshCoordinator scores;
     private final Clock clock;
     private final ZoneId defaultZone;
+    private final RefreshGate refreshGate;
+
+    /** Decides whether this caller may bypass freshness windows right now. */
+    @FunctionalInterface
+    public interface RefreshGate {
+        boolean allow();
+
+        RefreshGate ALWAYS = () -> true;
+    }
 
     public SportsService(
             LeagueRegistry leagues,
@@ -76,7 +86,8 @@ public final class SportsService {
             GameRepository games,
             ScoreRefreshCoordinator scores,
             Clock clock,
-            ZoneId defaultZone) {
+            ZoneId defaultZone,
+            RefreshGate refreshGate) {
         this.leagues = leagues;
         this.teams = teams;
         this.resolver = resolver;
@@ -84,6 +95,15 @@ public final class SportsService {
         this.scores = scores;
         this.clock = clock;
         this.defaultZone = defaultZone;
+        this.refreshGate = refreshGate;
+    }
+
+    /**
+     * {@code refresh=true} beyond the caller's refresh budget quietly becomes a normal request:
+     * they still get fresh-enough data, just not forced.
+     */
+    private boolean forced(Boolean refresh) {
+        return Boolean.TRUE.equals(refresh) && refreshGate.allow();
     }
 
     // ---------------------------------------------------------------- operations
@@ -181,8 +201,7 @@ public final class SportsService {
         League leagueHint = blank(league) ? null : league(league);
         Team t = blank(team) ? null : team(team, leagueHint);
         String leagueId = t != null ? t.league() : leagueHint == null ? null : leagueHint.id();
-        Refreshed<List<Game>> r =
-                scores.live(leagueId, t == null ? null : t.id(), Boolean.TRUE.equals(refresh));
+        Refreshed<List<Game>> r = scores.live(leagueId, t == null ? null : t.id(), forced(refresh));
         return gamesEnvelope(r, zone, null, List.of());
     }
 
@@ -201,7 +220,10 @@ public final class SportsService {
                             + String.join(", ", leagues.enabledIds())
                             + ".");
         }
-        Refreshed<Optional<Game>> r = scores.game(id, Boolean.TRUE.equals(refresh));
+        Refreshed<Optional<Game>> r = scores.game(id, forced(refresh));
+        if (r.stale()) {
+            SportsMetrics.staleResponse("game");
+        }
         Game g =
                 r.data()
                         .orElseThrow(
@@ -275,6 +297,9 @@ public final class SportsService {
             data.stream().map(GameDto::source).forEach(sources::add);
         }
         boolean stale = r.stale() || !notes.isEmpty() && data.isEmpty();
+        if (stale) {
+            SportsMetrics.staleResponse("games");
+        }
         String reason = r.staleReason();
         if (stale && reason == null && !notes.isEmpty()) {
             reason = String.join("; ", notes);

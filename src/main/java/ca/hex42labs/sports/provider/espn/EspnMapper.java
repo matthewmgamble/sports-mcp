@@ -118,6 +118,7 @@ final class EspnMapper {
                 EspnStatusMapper.map(
                         statusName, text(type, "state"), type.path("completed").asBoolean(false));
         if (!EspnStatusMapper.isKnown(statusName)) {
+            ca.hex42labs.sports.observability.SportsMetrics.unmappedStatus("espn", statusName);
             log.info(
                     "Unmapped ESPN status {} ({}) for {} -> {}",
                     statusName,

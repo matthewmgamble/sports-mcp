@@ -5,6 +5,7 @@ import ca.hex42labs.sports.domain.Game;
 import ca.hex42labs.sports.domain.GameStatus;
 import ca.hex42labs.sports.domain.League;
 import ca.hex42labs.sports.domain.Team;
+import ca.hex42labs.sports.observability.SportsMetrics;
 import ca.hex42labs.sports.persistence.GameRepository;
 import ca.hex42labs.sports.provider.ProviderBatch;
 import ca.hex42labs.sports.provider.ProviderException;
@@ -310,9 +311,11 @@ public final class ScoreRefreshCoordinator implements AutoCloseable {
             teams.addFromGames(r.teams());
             games.upsertAll(r.games(), clock.instant());
             log.debug("Team schedule {}: {} games", team.id(), r.games().size());
+            SportsMetrics.refreshFetch("team", "ok");
             return new Fetch.Ok(clock.instant());
         } catch (ProviderException e) {
             log.info("Team schedule {} failed: {}", team.id(), e.getMessage());
+            SportsMetrics.refreshFetch("team", "failed");
             return new Fetch.Failed(clock.instant(), e.getMessage());
         } catch (RuntimeException e) {
             log.warn("Team schedule {} failed unexpectedly", team.id(), e);
@@ -410,6 +413,8 @@ public final class ScoreRefreshCoordinator implements AutoCloseable {
 
     /** Joins the shared in-flight fetch for {@code key}, starting one if there isn't one. */
     private CompletableFuture<Fetch> flight(RefreshKey key) {
+        SportsMetrics.refreshDemand(
+                key.gameId() != null ? "game" : "bucket", flights.getIfPresent(key) != null);
         return flights.get(key, (k, exec) -> CompletableFuture.supplyAsync(() -> load(k), exec));
     }
 
@@ -426,6 +431,7 @@ public final class ScoreRefreshCoordinator implements AutoCloseable {
                             providers.forLeague(league.get()).refreshGame(league.get(), g.get());
                     updated.ifPresent(u -> games.upsertAll(List.of(u), clock.instant()));
                 }
+                SportsMetrics.refreshFetch("game", "ok");
                 return new Fetch.Ok(clock.instant());
             }
             ProviderBatch batch =
@@ -434,9 +440,11 @@ public final class ScoreRefreshCoordinator implements AutoCloseable {
             games.upsertAll(batch.games(), clock.instant());
             bucketFetchedAt.put(key, batch.fetchedAt());
             log.debug("Refreshed {}: {} games", key, batch.games().size());
+            SportsMetrics.refreshFetch("bucket", "ok");
             return new Fetch.Ok(batch.fetchedAt());
         } catch (ProviderException e) {
             log.info("Refresh {} failed: {}", key, e.getMessage());
+            SportsMetrics.refreshFetch(key.gameId() != null ? "game" : "bucket", "failed");
             if (key.gameId() == null) {
                 bucketFetchedAt.put(
                         key, clock.instant()); // don't retry an empty-day probe every request

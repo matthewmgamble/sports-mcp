@@ -105,7 +105,11 @@ final class MlbMapper {
             case "Preview" -> GameStatus.SCHEDULED;
             case "Live" -> GameStatus.LIVE;
             case "Final" -> GameStatus.FINAL;
-            default -> GameStatus.UNKNOWN;
+            default -> {
+                ca.hex42labs.sports.observability.SportsMetrics.unmappedStatus(
+                        "mlb", coded + "/" + abstractState);
+                yield GameStatus.UNKNOWN;
+            }
         };
     }
 

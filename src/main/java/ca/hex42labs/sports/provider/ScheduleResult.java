@@ -4,6 +4,7 @@ import ca.hex42labs.sports.domain.Game;
 import ca.hex42labs.sports.domain.GameStatus;
 import ca.hex42labs.sports.domain.Team;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -11,15 +12,26 @@ import java.util.Map;
 
 /**
  * Games for a date window, possibly assembled from several upstream calls. Individual calls can
- * fail without losing the rest; {@link #failures()} says which.
+ * fail without losing the rest; {@link #failures()} says which, and {@link #failedDays()} lists the
+ * days whose single-day request failed (so a fallback source can fill exactly those).
  */
 public record ScheduleResult(
-        List<Game> games, List<Team> teams, Instant fetchedAt, List<String> failures) {
+        List<Game> games,
+        List<Team> teams,
+        Instant fetchedAt,
+        List<String> failures,
+        List<LocalDate> failedDays) {
 
     public ScheduleResult {
         games = List.copyOf(games);
         teams = List.copyOf(teams);
         failures = List.copyOf(failures);
+        failedDays = List.copyOf(failedDays);
+    }
+
+    public ScheduleResult(
+            List<Game> games, List<Team> teams, Instant fetchedAt, List<String> failures) {
+        this(games, teams, fetchedAt, failures, List.of());
     }
 
     public boolean complete() {
@@ -31,6 +43,7 @@ public record ScheduleResult(
         private final Map<String, Game> games = new LinkedHashMap<>();
         private final Map<String, Team> teams = new LinkedHashMap<>();
         private final List<String> failures = new ArrayList<>();
+        private final List<LocalDate> failedDays = new ArrayList<>();
         private Instant fetchedAt;
         private ProviderException lastError;
 
@@ -53,6 +66,12 @@ public record ScheduleResult(
             return this;
         }
 
+        /** A single-day request failed. */
+        public Builder failDay(LocalDate day, ProviderException e) {
+            failedDays.add(day);
+            return fail(day.toString(), e);
+        }
+
         /**
          * @param now fetch time to report when nothing succeeded
          * @throws ProviderException if every call failed (there's nothing to save)
@@ -65,7 +84,8 @@ public record ScheduleResult(
                     List.copyOf(games.values()),
                     List.copyOf(teams.values()),
                     fetchedAt == null ? now : fetchedAt,
-                    failures);
+                    failures,
+                    failedDays);
         }
 
         /**

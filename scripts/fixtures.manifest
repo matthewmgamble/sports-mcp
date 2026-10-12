@@ -55,3 +55,13 @@ mlb/teams                                  https://statsapi.mlb.com/api/v1/teams
 # ---- ESPN team lists for MLB/NHL: cross-check canonical ids (we use the NHL/MLB APIs for data) ----
 espn/mlb/teams                             https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams
 espn/nhl/teams                             https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams
+
+# ---- ESPN: MLB (fallback when statsapi refuses; same days as the MLB fixtures for id linking) ----
+espn/mlb/scoreboard-20260925-doubleheaders  https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=20260925
+espn/mlb/scoreboard-20260922-postponed      https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=20260922
+espn/mlb/scoreboard-20260923-makeup         https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=20260923
+espn/mlb/scoreboard-20261016-postseason     https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=20261016
+espn/mlb/scoreboard-20261024-tbd            https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=20261024
+espn/mlb/team-schedule-lad                  https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/lad/schedule
+mlb/schedule-20260925-doubleheaders         https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=2026-09-25&hydrate=linescore,team
+mlb/schedule-20261016-postseason            https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=2026-10-16&hydrate=linescore,team

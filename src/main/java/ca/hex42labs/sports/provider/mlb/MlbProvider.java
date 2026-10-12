@@ -13,6 +13,7 @@ import ca.hex42labs.sports.provider.UpstreamHttp;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.net.URI;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -72,14 +73,23 @@ public final class MlbProvider implements SportsProvider {
 
     private static final String HYDRATE = "&hydrate=linescore,team";
 
+    /** Gap between per-day fallback requests (they run inside one rate-limiter permit). */
+    static final Duration FALLBACK_PACE = Duration.ofSeconds(1);
+
     private final UpstreamHttp http;
     private final String baseUrl;
     private final Clock clock;
+    private final Duration fallbackPace;
 
     public MlbProvider(UpstreamHttp http, String baseUrl, Clock clock) {
+        this(http, baseUrl, clock, FALLBACK_PACE);
+    }
+
+    MlbProvider(UpstreamHttp http, String baseUrl, Clock clock, Duration fallbackPace) {
         this.http = http;
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
         this.clock = clock;
+        this.fallbackPace = fallbackPace;
     }
 
     @Override
@@ -157,7 +167,9 @@ public final class MlbProvider implements SportsProvider {
 
     /**
      * One range request for the whole window. Pulseboard saw statsapi answer ranges with an
-     * intermittent HTTP 406; on that, fall back to one request per day.
+     * intermittent HTTP 406; on that, fall back to one request per day. The 406 is also statsapi's
+     * per-IP throttle, so the fallback stops at the first day that 406s instead of spending the
+     * rest of the window digging the hole deeper; the remaining days are retried on the next sync.
      */
     @Override
     public ScheduleResult fetchSchedule(League league, LocalDate from, LocalDate to)
@@ -179,16 +191,27 @@ public final class MlbProvider implements SportsProvider {
             result.add(mapSchedule(root, fetchedAt, teams), List.copyOf(teams.values()), fetchedAt);
             return result.build(fetchedAt);
         } catch (ProviderException e) {
-            if (e.kind() != ProviderException.Kind.HTTP_STATUS || e.status() != 406) {
+            if (!is406(e)) {
                 throw e;
             }
             log.info("MLB range {}..{} got 406; falling back to per-day requests", from, to);
         }
+        ProviderException throttled = null;
         for (LocalDate day = from; !day.isAfter(to); day = day.plusDays(1)) {
+            if (throttled != null) {
+                result.failDay(day, throttled);
+                continue;
+            }
             try {
+                if (!day.equals(from)) {
+                    pause();
+                }
                 result.add(fetchScoreboard(league, day));
             } catch (ProviderException e) {
-                result.fail(day.toString(), e);
+                result.failDay(day, e);
+                if (is406(e)) {
+                    throttled = e;
+                }
             }
         }
         return result.build(clock.instant());
@@ -235,6 +258,22 @@ public final class MlbProvider implements SportsProvider {
                 http.getJson(
                         ID, URI.create(baseUrl + "/game/" + game.providerEventId() + "/linescore"));
         return Optional.of(MlbMapper.applyLinescore(game, ls, clock.instant()));
+    }
+
+    private void pause() throws ProviderException {
+        if (fallbackPace.isZero()) {
+            return;
+        }
+        try {
+            Thread.sleep(fallbackPace);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ProviderException(ID, ProviderException.Kind.NETWORK, "interrupted", e);
+        }
+    }
+
+    private static boolean is406(ProviderException e) {
+        return e.kind() == ProviderException.Kind.HTTP_STATUS && e.status() == 406;
     }
 
     private static List<Game> mapSchedule(

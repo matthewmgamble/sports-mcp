@@ -199,6 +199,9 @@
                   <mainClass>ca.hex42labs.sports.App</mainClass>
                   <manifestEntries>
                     <Multi-Release>true</Multi-Release>
+                    <!-- Read by AppConfig.version() for /mcp serverInfo, OpenAPI and the User-Agent -->
+                    <Implementation-Title>${project.artifactId}</Implementation-Title>
+                    <Implementation-Version>${project.version}</Implementation-Version>
                   </manifestEntries>
                 </transformer>
                 <!-- Flyway, MCP JSON mapper, SLF4J etc. discover implementations via ServiceLoader -->

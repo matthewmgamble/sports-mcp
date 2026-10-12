@@ -102,8 +102,76 @@ public final class GameRepository {
         }
     }
 
+    /**
+     * A game by canonical id. Also accepts a provisional fallback id ({@code mlb:espn401908026})
+     * whose game the primary provider has since adopted: it resolves through {@code game_links} to
+     * the canonical game, so ids handed out earlier keep working.
+     */
     public Optional<Game> findById(String id) {
-        return query("SELECT " + COLUMNS + " FROM games WHERE id = ?", id).stream().findFirst();
+        Optional<Game> g =
+                query("SELECT " + COLUMNS + " FROM games WHERE id = ?", id).stream().findFirst();
+        if (g.isPresent()) {
+            return g;
+        }
+        return query(
+                        "SELECT "
+                                + COLUMNS
+                                + " FROM games WHERE id = (SELECT game_id FROM game_links"
+                                + " WHERE league || ':' || provider || provider_event_id = ?)",
+                        id)
+                .stream()
+                .findFirst();
+    }
+
+    /**
+     * One provider's games for a matchup (exact home and away) starting in {@code [from, to)}, by
+     * start time. Used to link the same game across providers.
+     */
+    public List<Game> findMatchup(
+            String league,
+            String provider,
+            String homeTeamId,
+            String awayTeamId,
+            Instant from,
+            Instant to) {
+        return query(
+                "SELECT "
+                        + COLUMNS
+                        + " FROM games WHERE league = ? AND provider = ? AND home_team_id = ?"
+                        + " AND away_team_id = ? AND starts_at >= ? AND starts_at < ?"
+                        + " ORDER BY starts_at, id",
+                league,
+                provider,
+                homeTeamId,
+                awayTeamId,
+                Timestamps.format(from),
+                Timestamps.format(to));
+    }
+
+    /** True if any of {@code league}'s stored games came from {@code provider}. */
+    public boolean hasProvider(String league, String provider) {
+        try (Connection c = db.read();
+                PreparedStatement ps =
+                        c.prepareStatement(
+                                "SELECT 1 FROM games WHERE league = ? AND provider = ? LIMIT 1")) {
+            ps.setString(1, league);
+            ps.setString(2, provider);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            throw new PersistenceException("Game query failed", e);
+        }
+    }
+
+    public boolean deleteById(String id) {
+        try (Connection c = db.write();
+                PreparedStatement ps = c.prepareStatement("DELETE FROM games WHERE id = ?")) {
+            ps.setString(1, id);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            throw new PersistenceException("Game delete failed", e);
+        }
     }
 
     /** Games in a league starting in {@code [from, to)}, by start time. */
@@ -196,13 +264,21 @@ public final class GameRepository {
                 Timestamps.format(to));
     }
 
-    /** Deletes games that started before {@code cutoff}. @return rows deleted */
+    /**
+     * Deletes games that started before {@code cutoff}, and cross-provider links to games that are
+     * gone. @return games deleted
+     */
     public int deleteStartedBefore(Instant cutoff) {
         try (Connection c = db.write();
-                PreparedStatement ps =
-                        c.prepareStatement("DELETE FROM games WHERE starts_at < ?")) {
+                PreparedStatement ps = c.prepareStatement("DELETE FROM games WHERE starts_at < ?");
+                PreparedStatement links =
+                        c.prepareStatement(
+                                "DELETE FROM game_links WHERE game_id NOT IN"
+                                        + " (SELECT id FROM games)")) {
             ps.setString(1, Timestamps.format(cutoff));
-            return ps.executeUpdate();
+            int deleted = ps.executeUpdate();
+            links.executeUpdate();
+            return deleted;
         } catch (SQLException e) {
             throw new PersistenceException("Game retention delete failed", e);
         }

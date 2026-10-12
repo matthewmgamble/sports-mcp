@@ -341,6 +341,17 @@ NHL schedule/score mappers, MLB schedule/linescore mappers with 406 fallback, `S
 **Acceptance:** contract test shows REST and MCP structured output are identical for the same query; MCP Inspector, Claude Code and Ack can answer "when do the Leafs play next?", "NFL scores right now" and "what MLB games are today?"; invalid inputs give bounded, actionable errors.
 
 ### Sprint 5: Public hardening and release (5–6 days)
+*Implementation notes (2026-10-12):*
+- **Front door.** `PublicTrafficFilter` is a Jetty servlet filter, so one code path covers REST and MCP. It enforces the concurrency cap, per-client token buckets (API key or trusted-proxy-aware IP), the access log with daily-rotating HMAC'd IPs, and HTTP metrics.
+- **MCP limits.** MCP bodies are peeked so a limited `tools/call` returns a tool error; discovery calls are free.
+- **`refresh=true`.** Over-budget forced refreshes are downgraded to normal requests rather than rejected.
+- **Metrics.** Micrometer/Prometheus on the management port covers upstream calls by outcome, refresh demand and fetches, stale responses, rate limiting, unmapped statuses, per-league sync age, breaker state and JVM.
+- **Load and flood results.** 2,000 requests over 50 concurrent clients produced **one** upstream call. A 300-request flood from one IP produced 10–15 OKs and the rest 429s, with no extra upstream calls.
+- **Fault suite.** 503, 429, malformed JSON, HTML body, connection reset, garbage bytes, timeout, breaker opening, changed payload shape and an unknown status all serve the last good data marked stale, and recover.
+- **Ops files.** Compose (with optional Caddy), a GHCR release workflow (multi-arch, Trivy scan), Dependabot, the landing page and `docs/RUNBOOK.md`.
+- **Pending your go-ahead:** pushing to GitHub and tagging v0.1.0 (publishes the image).
+- **Hosted (2026-10-12).** Deployed to `https://sports-mcp.pulseboard.ca` on appsrv01 (Cloudflare tunnel → nginx → container; see the runbook's "Hosted instance").
+- **MLB from the hosted server.** statsapi returns HTTP 406 to the server for most non-today schedule requests (never from a home connection). MLB now runs statsapi-first with ESPN filling refused days, linked onto statsapi gamePks via a `game_links` table (V2 migration); see upstream-contract.md "HTTP 406 depends on the client". The per-day fallback is paced and stops at the first 406, and 406 counts toward the breaker.
 Rate limiting/client identity, management port, CORS/Origin checks, IP hashing, Micrometer metrics (upstream calls/latency/errors, coalescing savings, cache hits, sync age, stale responses, breaker state, unmapped statuses), Dockerfile + Compose, GHCR publishing, landing page, README (self-host + hosted usage + attribution + disclaimer), runbook (schema breakage, provider kill switch, resync), WireMock fault suite (429/500/slow/truncated/changed fields), load test (k6 or JUnit) asserting the upstream call budget. VPS provisioning + Cloudflare once you give the go-ahead.
 **Acceptance:** dev plan §10 Sprint 5 scenarios pass; a sustained anonymous flood from one IP gets 429s without raising upstream call volume; v0.1.0 tagged and the image published.
 

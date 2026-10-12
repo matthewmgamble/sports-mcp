@@ -1,0 +1,7 @@
+# TLS termination for self-hosters not behind Cloudflare.
+# With Caddy as the only proxy, set TRUSTED_PROXY_CIDRS to the compose network (e.g. 172.16.0.0/12)
+# so client IPs come from X-Forwarded-For.
+{$SPORTS_MCP_DOMAIN} {
+	encode gzip
+	reverse_proxy sports-mcp:8080
+}
