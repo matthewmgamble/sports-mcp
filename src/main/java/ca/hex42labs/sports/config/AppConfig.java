@@ -17,7 +17,14 @@ public record AppConfig(
         String dbPath,
         ZoneId defaultTimezone,
         List<String> mcpAllowedOrigins,
+        List<String> enabledLeagues,
+        String espnBaseUrl,
+        String nhlBaseUrl,
+        String mlbBaseUrl,
+        boolean syncOnStartup,
         String version) {
+
+    public static final String REPO_URL = "https://github.com/matthewmgamble/sports-mcp";
 
     public static AppConfig fromEnv() {
         return fromMap(System.getenv());
@@ -36,9 +43,21 @@ public record AppConfig(
                 // Browser Origins allowed to call /mcp. Requests without an Origin header
                 // (normal MCP clients) are always accepted; any other Origin is rejected.
                 csv(get(env, "MCP_ALLOWED_ORIGINS", "")),
+                // Empty = each league's default (all MVP leagues on).
+                csv(get(env, "ENABLED_LEAGUES", "")),
+                // Base URLs are overridable so tests can point providers at WireMock.
+                get(env, "PROVIDER_ESPN_BASE_URL", "https://site.api.espn.com/apis/site/v2/sports"),
+                get(env, "PROVIDER_NHL_BASE_URL", "https://api-web.nhle.com/v1"),
+                get(env, "PROVIDER_MLB_BASE_URL", "https://statsapi.mlb.com/api/v1"),
+                Boolean.parseBoolean(get(env, "SYNC_ON_STARTUP", "true")),
                 AppConfig.class.getPackage().getImplementationVersion() != null
                         ? AppConfig.class.getPackage().getImplementationVersion()
                         : "dev");
+    }
+
+    /** Identifies us to upstreams, with a link so operators can find us. */
+    public String userAgent() {
+        return "sports-mcp/" + version + " (+" + REPO_URL + ")";
     }
 
     private static String get(Map<String, String> env, String key, String def) {

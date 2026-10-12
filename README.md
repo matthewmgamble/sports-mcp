@@ -2,8 +2,9 @@
 
 Sports scores, schedules and team information for AI agents (MCP) and regular apps (REST).
 
-> **Status: Sprint 0 (scaffold).** The MCP transport, health endpoints and database are in place;
-> the only tool so far is `sports_ping`. See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) for the roadmap.
+> **Status: Sprint 1 (domain + persistence).** Team catalogs for all nine leagues sync and
+> persist; ESPN scoreboards map to the normalised model. MCP exposes only `sports_ping` so far.
+> See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) for the roadmap.
 
 **Leagues (planned MVP):** NFL, NHL, NBA, MLB, NCAA football, NCAA men's basketball, Premier League,
 La Liga, Bundesliga.

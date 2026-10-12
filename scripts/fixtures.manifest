@@ -48,3 +48,7 @@ mlb/schedule-range-postseason              https://statsapi.mlb.com/api/v1/sched
 mlb/schedule-20270115-offseason            https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=2027-01-15&hydrate=linescore,team
 mlb/linescore-824312-extra-innings         https://statsapi.mlb.com/api/v1/game/824312/linescore
 mlb/teams                                  https://statsapi.mlb.com/api/v1/teams?sportId=1
+
+# ---- ESPN team lists for MLB/NHL: cross-check canonical ids (we use the NHL/MLB APIs for data) ----
+espn/mlb/teams                             https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams
+espn/nhl/teams                             https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams

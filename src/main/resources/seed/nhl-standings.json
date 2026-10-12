@@ -1,0 +1,453 @@
+{
+  "standings": [
+    {
+      "teamAbbrev": {
+        "default": "ANA"
+      },
+      "teamName": {
+        "default": "Anaheim Ducks"
+      },
+      "teamCommonName": {
+        "default": "Ducks"
+      },
+      "placeName": {
+        "default": "Anaheim"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "BOS"
+      },
+      "teamName": {
+        "default": "Boston Bruins"
+      },
+      "teamCommonName": {
+        "default": "Bruins"
+      },
+      "placeName": {
+        "default": "Boston"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "BUF"
+      },
+      "teamName": {
+        "default": "Buffalo Sabres"
+      },
+      "teamCommonName": {
+        "default": "Sabres"
+      },
+      "placeName": {
+        "default": "Buffalo"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "CAR"
+      },
+      "teamName": {
+        "default": "Carolina Hurricanes"
+      },
+      "teamCommonName": {
+        "default": "Hurricanes"
+      },
+      "placeName": {
+        "default": "Carolina"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "CBJ"
+      },
+      "teamName": {
+        "default": "Columbus Blue Jackets"
+      },
+      "teamCommonName": {
+        "default": "Blue Jackets"
+      },
+      "placeName": {
+        "default": "Columbus"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "CGY"
+      },
+      "teamName": {
+        "default": "Calgary Flames"
+      },
+      "teamCommonName": {
+        "default": "Flames"
+      },
+      "placeName": {
+        "default": "Calgary"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "CHI"
+      },
+      "teamName": {
+        "default": "Chicago Blackhawks"
+      },
+      "teamCommonName": {
+        "default": "Blackhawks"
+      },
+      "placeName": {
+        "default": "Chicago"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "COL"
+      },
+      "teamName": {
+        "default": "Colorado Avalanche"
+      },
+      "teamCommonName": {
+        "default": "Avalanche"
+      },
+      "placeName": {
+        "default": "Colorado"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "DAL"
+      },
+      "teamName": {
+        "default": "Dallas Stars"
+      },
+      "teamCommonName": {
+        "default": "Stars"
+      },
+      "placeName": {
+        "default": "Dallas"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "DET"
+      },
+      "teamName": {
+        "default": "Detroit Red Wings"
+      },
+      "teamCommonName": {
+        "default": "Red Wings"
+      },
+      "placeName": {
+        "default": "Detroit"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "EDM"
+      },
+      "teamName": {
+        "default": "Edmonton Oilers"
+      },
+      "teamCommonName": {
+        "default": "Oilers"
+      },
+      "placeName": {
+        "default": "Edmonton"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "FLA"
+      },
+      "teamName": {
+        "default": "Florida Panthers"
+      },
+      "teamCommonName": {
+        "default": "Panthers"
+      },
+      "placeName": {
+        "default": "Florida"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "LAK"
+      },
+      "teamName": {
+        "default": "Los Angeles Kings"
+      },
+      "teamCommonName": {
+        "default": "Kings"
+      },
+      "placeName": {
+        "default": "Los Angeles"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "MIN"
+      },
+      "teamName": {
+        "default": "Minnesota Wild"
+      },
+      "teamCommonName": {
+        "default": "Wild"
+      },
+      "placeName": {
+        "default": "Minnesota"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "MTL"
+      },
+      "teamName": {
+        "default": "Montréal Canadiens"
+      },
+      "teamCommonName": {
+        "default": "Canadiens"
+      },
+      "placeName": {
+        "default": "Montréal"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "NJD"
+      },
+      "teamName": {
+        "default": "New Jersey Devils"
+      },
+      "teamCommonName": {
+        "default": "Devils"
+      },
+      "placeName": {
+        "default": "New Jersey"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "NSH"
+      },
+      "teamName": {
+        "default": "Nashville Predators"
+      },
+      "teamCommonName": {
+        "default": "Predators"
+      },
+      "placeName": {
+        "default": "Nashville"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "NYI"
+      },
+      "teamName": {
+        "default": "New York Islanders"
+      },
+      "teamCommonName": {
+        "default": "Islanders"
+      },
+      "placeName": {
+        "default": "NY Islanders"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "NYR"
+      },
+      "teamName": {
+        "default": "New York Rangers"
+      },
+      "teamCommonName": {
+        "default": "Rangers"
+      },
+      "placeName": {
+        "default": "NY Rangers"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "OTT"
+      },
+      "teamName": {
+        "default": "Ottawa Senators"
+      },
+      "teamCommonName": {
+        "default": "Senators",
+        "fr": "Sénateurs"
+      },
+      "placeName": {
+        "default": "Ottawa"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "PHI"
+      },
+      "teamName": {
+        "default": "Philadelphia Flyers"
+      },
+      "teamCommonName": {
+        "default": "Flyers"
+      },
+      "placeName": {
+        "default": "Philadelphia"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "PIT"
+      },
+      "teamName": {
+        "default": "Pittsburgh Penguins"
+      },
+      "teamCommonName": {
+        "default": "Penguins"
+      },
+      "placeName": {
+        "default": "Pittsburgh"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "SEA"
+      },
+      "teamName": {
+        "default": "Seattle Kraken"
+      },
+      "teamCommonName": {
+        "default": "Kraken"
+      },
+      "placeName": {
+        "default": "Seattle"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "SJS"
+      },
+      "teamName": {
+        "default": "San Jose Sharks"
+      },
+      "teamCommonName": {
+        "default": "Sharks"
+      },
+      "placeName": {
+        "default": "San Jose"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "STL"
+      },
+      "teamName": {
+        "default": "St. Louis Blues"
+      },
+      "teamCommonName": {
+        "default": "Blues"
+      },
+      "placeName": {
+        "default": "St. Louis"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "TBL"
+      },
+      "teamName": {
+        "default": "Tampa Bay Lightning"
+      },
+      "teamCommonName": {
+        "default": "Lightning"
+      },
+      "placeName": {
+        "default": "Tampa Bay"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "TOR"
+      },
+      "teamName": {
+        "default": "Toronto Maple Leafs"
+      },
+      "teamCommonName": {
+        "default": "Maple Leafs"
+      },
+      "placeName": {
+        "default": "Toronto"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "UTA"
+      },
+      "teamName": {
+        "default": "Utah Mammoth"
+      },
+      "teamCommonName": {
+        "default": "Mammoth"
+      },
+      "placeName": {
+        "default": "Utah"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "VAN"
+      },
+      "teamName": {
+        "default": "Vancouver Canucks"
+      },
+      "teamCommonName": {
+        "default": "Canucks"
+      },
+      "placeName": {
+        "default": "Vancouver"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "VGK"
+      },
+      "teamName": {
+        "default": "Vegas Golden Knights"
+      },
+      "teamCommonName": {
+        "default": "Golden Knights"
+      },
+      "placeName": {
+        "default": "Vegas"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "WPG"
+      },
+      "teamName": {
+        "default": "Winnipeg Jets"
+      },
+      "teamCommonName": {
+        "default": "Jets"
+      },
+      "placeName": {
+        "default": "Winnipeg"
+      }
+    },
+    {
+      "teamAbbrev": {
+        "default": "WSH"
+      },
+      "teamName": {
+        "default": "Washington Capitals"
+      },
+      "teamCommonName": {
+        "default": "Capitals"
+      },
+      "placeName": {
+        "default": "Washington"
+      }
+    }
+  ]
+}

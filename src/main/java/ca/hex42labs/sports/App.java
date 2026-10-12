@@ -1,8 +1,20 @@
 package ca.hex42labs.sports;
 
 import ca.hex42labs.sports.api.mcp.McpServerFactory;
+import ca.hex42labs.sports.application.TeamAliases;
+import ca.hex42labs.sports.application.TeamCatalog;
+import ca.hex42labs.sports.application.TeamResolver;
 import ca.hex42labs.sports.config.AppConfig;
+import ca.hex42labs.sports.config.LeagueRegistry;
 import ca.hex42labs.sports.persistence.Database;
+import ca.hex42labs.sports.persistence.GameRepository;
+import ca.hex42labs.sports.persistence.SyncStateRepository;
+import ca.hex42labs.sports.persistence.TeamRepository;
+import ca.hex42labs.sports.provider.Providers;
+import ca.hex42labs.sports.provider.UpstreamHttp;
+import ca.hex42labs.sports.provider.espn.EspnProvider;
+import ca.hex42labs.sports.provider.mlb.MlbProvider;
+import ca.hex42labs.sports.provider.nhl.NhlProvider;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -10,6 +22,8 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.javalin.Javalin;
 import io.javalin.json.JavalinJackson;
 import java.time.Clock;
+import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import org.eclipse.jetty.ee10.servlet.ServletHolder;
 import org.slf4j.Logger;
@@ -20,8 +34,15 @@ public final class App implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(App.class);
 
+    /** Team lists change a few times a year; refresh daily. */
+    static final Duration TEAM_SYNC_MAX_AGE = Duration.ofHours(24);
+
     private final AppConfig config;
     private final Database db;
+    private final LeagueRegistry leagues;
+    private final TeamCatalog teams;
+    private final TeamResolver teamResolver;
+    private final GameRepository games;
     private final McpServerFactory.Mcp mcp;
     private final Javalin http;
 
@@ -29,6 +50,27 @@ public final class App implements AutoCloseable {
         this.config = config;
         ObjectMapper json = objectMapper();
         this.db = Database.open(config.dbPath());
+        this.leagues = LeagueRegistry.standard(config.enabledLeagues());
+
+        UpstreamHttp http = UpstreamHttp.withDefaults(json, config.userAgent());
+        Providers providers =
+                new Providers(
+                        List.of(
+                                new EspnProvider(http, config.espnBaseUrl(), clock),
+                                new NhlProvider(http, config.nhlBaseUrl()),
+                                new MlbProvider(http, config.mlbBaseUrl())));
+        this.games = new GameRepository(db, json);
+        this.teams =
+                new TeamCatalog(
+                        leagues,
+                        providers,
+                        new TeamRepository(db, json),
+                        new SyncStateRepository(db),
+                        TeamAliases.bundled(),
+                        clock);
+        this.teams.load();
+        this.teamResolver = new TeamResolver(teams);
+
         this.mcp = McpServerFactory.create(config, json, clock);
 
         this.http =
@@ -60,6 +102,10 @@ public final class App implements AutoCloseable {
 
     public App start() {
         http.start();
+        if (config.syncOnStartup()) {
+            // Off the startup path: serve whatever is persisted while catalogs refresh.
+            Thread.ofVirtual().name("team-sync").start(() -> teams.syncStale(TEAM_SYNC_MAX_AGE));
+        }
         log.info(
                 "sports-mcp {} listening on {}:{} (MCP at {})",
                 config.version(),
@@ -72,6 +118,22 @@ public final class App implements AutoCloseable {
     /** Actual bound port (differs from config when PORT=0 in tests). */
     public int port() {
         return http.port();
+    }
+
+    public LeagueRegistry leagues() {
+        return leagues;
+    }
+
+    public TeamCatalog teams() {
+        return teams;
+    }
+
+    public TeamResolver teamResolver() {
+        return teamResolver;
+    }
+
+    public GameRepository games() {
+        return games;
     }
 
     @Override

@@ -111,6 +111,7 @@ States seen: `OFF` + `OK` with `lastPeriodType` REG / OT / SO. Documented elsewh
 `CRIT`, `FINAL`; schedule states `PPD`, `SUSP`, `CNCL`. `gameScheduleState` takes priority over `gameState`.
 
 NHL abbreviation → ESPN abbreviation (only those that differ): `LAK→la, SJS→sj, NJD→nj, TBL→tb, UTA→utah`.
+Verified against ESPN's NHL team list (`espn/nhl/teams` fixture); `NhlProviderTest` enforces it.
 
 ---
 
@@ -121,7 +122,7 @@ NHL abbreviation → ESPN abbreviation (only those that differ): `LAK→la, SJS�
 | Schedule | `/schedule?sportId=1&date=YYYY-MM-DD&hydrate=linescore,team` | Single date is reliable |
 | Schedule range | `…&startDate=…&endDate=…` | Worked today; Pulseboard saw intermittent 406, so fall back to per-day |
 | Live linescore | `/game/{gamePk}/linescore` | ~1 KB, fresher than the schedule's hydrated linescore |
-| Teams | `/teams?sportId=1` | 30 teams; numeric ids → ESPN abbreviation via `MLB_ESPN` table |
+| Teams | `/teams?sportId=1` | 30 teams; numeric ids → ESPN abbreviation via `MlbProvider.ESPN_ABBR` (MLB `AZ`/`CWS` are ESPN `ari`/`chw`; enforced against the `espn/mlb/teams` fixture) |
 
 ### Status values seen
 | abstractGameState | detailedState | codedGameState | statusCode | → normalised |
@@ -153,5 +154,5 @@ See `scripts/fixtures.manifest` for URLs. Coverage by scenario:
 | Postponed | NCAAB 2026-02-14 (D1 fixture) | — (synthetic) | 2026-09-22 |
 | Cancelled | — (synthetic) | — (synthetic) | 2026-09-27 |
 | Empty / off-season | NFL 2026-07-15, NBA 2026-08-01 | 2026-07-15 | 2027-01-15 |
-| Teams | all 7 ESPN leagues | standings/now | teams |
+| Teams | all 7 ESPN leagues, plus ESPN MLB/NHL lists to cross-check canonical ids | standings/now | teams |
 | **Live / halftime / intermission** | **todo: capture during games** | **todo** | **todo** |

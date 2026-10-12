@@ -69,6 +69,8 @@ Defaults I've chosen that you can veto (none block Sprint 0): **Apache-2.0 licen
 - Javalin 6.x uses Jetty 11 (servlet 5): **incompatible**. Javalin 7.2.3 uses Jetty 12.1.12: **compatible**.
 - The SDK's `mcp` bundle pulls in Jackson 3. Use `mcp-core` + `mcp-json-jackson2` to stay on one Jackson line with Javalin.
 - The old `server-servlet` artifact stopped at 0.18.4. In 2.x the servlet transports live in `mcp-core`.
+- Jetty 12.1's ee10 module ships `jakarta.servlet-api` **6.0**, while the SDK compiles against 6.1 (`provided`). It only uses 6.0 APIs today, and `AppEndToEndTest` plus the MCP Inspector check cover this. Re-verify on SDK upgrades.
+- `logstash-logback-encoder` 9.x pulls Jackson 3, so we pin 8.x to stay on one Jackson line.
 
 ## 4. Architecture
 
