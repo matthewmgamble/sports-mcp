@@ -275,4 +275,35 @@ class NhlProviderTest {
     private static Game byId(List<Game> games, String id) {
         return games.stream().filter(g -> g.id().equals(id)).findFirst().orElseThrow();
     }
+
+    @Test
+    void playoffGamesCarryTheirRoundAndSeries() {
+        ObjectNode s = new ObjectMapper().createObjectNode();
+        s.put("round", 1)
+                .put("seriesTitle", "1st Round")
+                .put("neededToWin", 4)
+                .put("topSeedTeamAbbrev", "TOR")
+                .put("topSeedWins", 2)
+                .put("bottomSeedTeamAbbrev", "OTT")
+                .put("bottomSeedWins", 1)
+                .put("gameNumberOfSeries", 4);
+        assertThat(NhlMapper.round(s)).isEqualTo("1st Round Game 4");
+        assertThat(NhlMapper.series(s)).isEqualTo("TOR leads 2-1");
+        s.put("bottomSeedWins", 4).remove("seriesTitle");
+        s.put("round", 4);
+        assertThat(NhlMapper.round(s)).isEqualTo("Stanley Cup Final Game 4");
+        assertThat(NhlMapper.series(s)).isEqualTo("OTT wins 4-2");
+        s.put("topSeedWins", 0).put("bottomSeedWins", 0);
+        assertThat(NhlMapper.series(s)).isNull();
+        // A regular-season game has neither.
+        Game regular =
+                NhlMapper.game(
+                                Fixtures.json("nhl/score-20261006-ot").path("games").path(0),
+                                NOW,
+                                new HashMap<>())
+                        .orElseThrow();
+        assertThat(regular.round()).isNull();
+        assertThat(regular.series()).isNull();
+        assertThat(regular.startTimeTbd()).isFalse();
+    }
 }

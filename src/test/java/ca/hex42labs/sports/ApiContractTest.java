@@ -165,7 +165,12 @@ class ApiContractTest {
                                 "2026-09-30",
                                 "limit",
                                 50),
-                        "list:Game"));
+                        "list:Game"),
+                Arguments.of(
+                        "/api/v1/teams/" + enc("Packers"),
+                        "sports_get_team",
+                        Map.of("team", "Packers"),
+                        "one:Team"));
     }
 
     @ParameterizedTest(name = "{1} == GET {0}")
@@ -224,6 +229,28 @@ class ApiContractTest {
     }
 
     @Test
+    void oneTeamComesWithItsSeasonSoFar() throws Exception {
+        JsonNode packers = JSON.readTree(get("/api/v1/teams/nfl:gb").body());
+        assertThat(packers.at("/data/name").asText()).isEqualTo("Green Bay Packers");
+        assertThat(packers.at("/data/record").asText()).isEqualTo("3-2");
+        assertThat(packers.at("/data/standing").asText()).isEqualTo("2nd in NFC North");
+        assertThat(packers.at("/data/color").asText()).isEqualTo("204e32");
+        assertConforms("one:Team", packers);
+        // Lists stay lean: no season details.
+        JsonNode search = JSON.readTree(get("/api/v1/teams?search=packers").body());
+        assertThat(search.at("/data/0").has("record")).isFalse();
+
+        // No ESPN details for this team in the fixtures: the team still comes back, marked stale.
+        HttpResponse<String> leafs = get("/api/v1/teams/leafs");
+        assertThat(leafs.statusCode()).isEqualTo(200);
+        JsonNode body = JSON.readTree(leafs.body());
+        assertThat(body.at("/data/id").asText()).isEqualTo("nhl:tor");
+        assertThat(body.at("/data").has("record")).isFalse();
+        assertThat(body.at("/meta/isStale").asBoolean()).isTrue();
+        assertConforms("one:Team", body);
+    }
+
+    @Test
     void toolListIsCompleteAndAnnotated() throws Exception {
         JsonNode tools = mcp("tools/list", Map.of()).at("/result/tools");
         List<String> names = new ArrayList<>();
@@ -242,7 +269,8 @@ class ApiContractTest {
                         "sports_get_games",
                         "sports_get_live_scores",
                         "sports_get_game",
-                        "sports_get_team_schedule");
+                        "sports_get_team_schedule",
+                        "sports_get_team");
     }
 
     // ---------------------------------------------------------------- errors
@@ -413,7 +441,7 @@ class ApiContractTest {
     void openApiDocumentIsServedAndSelfConsistent() throws Exception {
         JsonNode doc = JSON.readTree(get("/openapi.json").body());
         assertThat(doc.at("/openapi").asText()).isEqualTo("3.1.0");
-        assertThat(doc.at("/paths").size()).isEqualTo(7);
+        assertThat(doc.at("/paths").size()).isEqualTo(8);
         List<String> refs = new ArrayList<>();
         collectRefs(doc, refs);
         assertThat(refs).isNotEmpty();

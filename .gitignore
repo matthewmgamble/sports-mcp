@@ -2,6 +2,8 @@
 target/
 *.class
 
+IMPLEMENTATION_PLAN.md
+
 # IDE
 .idea/
 *.iml

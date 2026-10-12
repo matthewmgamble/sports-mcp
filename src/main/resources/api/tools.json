@@ -187,6 +187,29 @@
           }
         }
       }
+    },
+    {
+      "name": "sports_get_team",
+      "title": "Team details",
+      "description": "One team's season so far: record and standing (and colour). Use for 'how are the Leafs doing this season' or 'where are the Jays in the standings'.",
+      "output": "one:Team",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "team"
+        ],
+        "properties": {
+          "team": {
+            "type": "string",
+            "description": "Team id (nhl:tor) or name ('Maple Leafs', 'Green Bay Packers')"
+          },
+          "league": {
+            "type": "string",
+            "description": "League id, to disambiguate a team name (e.g. 'kings' in nhl)"
+          }
+        }
+      }
     }
   ]
 }

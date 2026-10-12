@@ -55,6 +55,8 @@ final class NhlMapper {
                         : null;
 
         boolean scored = status.hasScore();
+        boolean playoffs = g.path("gameType").asInt(0) == 3;
+        JsonNode series = g.path("seriesStatus");
         return Optional.of(
                 new Game(
                         Ids.game("nhl", id),
@@ -79,7 +81,58 @@ final class NhlMapper {
                         broadcasts(g),
                         null,
                         fetchedAt,
-                        null));
+                        null,
+                        playoffs ? round(series) : null,
+                        playoffs ? series(series) : null,
+                        "TBD".equals(g.path("gameScheduleState").asText(""))));
+    }
+
+    /** "1st Round Game 3", "Stanley Cup Final Game 1"; the title is missing from some feeds. */
+    static String round(JsonNode s) {
+        if (!s.isObject()) {
+            return null;
+        }
+        String title = s.path("seriesTitle").asText("");
+        if (title.isBlank()) {
+            title =
+                    switch (s.path("round").asInt(0)) {
+                        case 1 -> "1st Round";
+                        case 2 -> "2nd Round";
+                        case 3 -> "Conference Final";
+                        case 4 -> "Stanley Cup Final";
+                        default -> "";
+                    };
+        }
+        int game = s.path("gameNumberOfSeries").asInt(0);
+        String out = (title + (game > 0 ? " Game " + game : "")).strip();
+        return out.isEmpty() ? null : out;
+    }
+
+    /** "TOR leads 2-1", "Series tied 1-1", "FLA wins 4-2"; nothing before game 1 is played. */
+    static String series(JsonNode s) {
+        if (!s.isObject()) {
+            return null;
+        }
+        int top = s.path("topSeedWins").asInt(0);
+        int bottom = s.path("bottomSeedWins").asInt(0);
+        if (top + bottom == 0) {
+            return null;
+        }
+        if (top == bottom) {
+            return "Series tied " + top + "-" + bottom;
+        }
+        boolean topLeads = top > bottom;
+        String leader =
+                topLeads
+                        ? s.path("topSeedTeamAbbrev").asText("")
+                        : s.path("bottomSeedTeamAbbrev").asText("");
+        int needed = s.path("neededToWin").asInt(4);
+        int high = Math.max(top, bottom);
+        return leader
+                + (high >= needed ? " wins " : " leads ")
+                + high
+                + "-"
+                + Math.min(top, bottom);
     }
 
     /** {@code gameScheduleState} (postponed etc.) overrides {@code gameState}. */

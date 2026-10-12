@@ -84,6 +84,12 @@ public final class RestRoutes {
                 PREFIX + "/games/{gameId}",
                 ctx -> ctx.json(s.game(ctx.pathParam("gameId"), bool(ctx, "refresh"), tz(ctx))));
         routes.get(
+                PREFIX + "/teams/{team}",
+                ctx -> {
+                    ctx.header("Cache-Control", "public, max-age=300");
+                    ctx.json(s.teamDetails(ctx.pathParam("team"), q(ctx, "league")));
+                });
+        routes.get(
                 PREFIX + "/teams/{team}/schedule",
                 ctx ->
                         ctx.json(
@@ -145,6 +151,7 @@ public final class RestRoutes {
         Map<String, Object> all = new LinkedHashMap<>(schemas.openApiComponents());
         all.put("LeagueList", schemas.envelopeRef("list:League"));
         all.put("TeamList", schemas.envelopeRef("list:Team"));
+        all.put("TeamOne", schemas.envelopeRef("one:Team"));
         all.put("GameList", schemas.envelopeRef("list:Game"));
         all.put("GameOne", schemas.envelopeRef("one:Game"));
         components.put("schemas", all);

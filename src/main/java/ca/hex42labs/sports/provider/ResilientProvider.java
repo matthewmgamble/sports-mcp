@@ -113,8 +113,17 @@ public final class ResilientProvider implements SportsProvider {
         return delegate.hasPerGameFeed();
     }
 
-    private interface Call<T> {
+    /** An upstream call. */
+    public interface Call<T> {
         T run() throws ProviderException;
+    }
+
+    /**
+     * Runs another call to this provider's upstream (team details) under the same rate limit and
+     * circuit breaker as its schedule calls.
+     */
+    public <T> T guard(Call<T> call) throws ProviderException {
+        return call(call);
     }
 
     private <T> T call(Call<T> call) throws ProviderException {

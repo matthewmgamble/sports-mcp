@@ -94,7 +94,7 @@ class AppEndToEndTest {
         assertThat(init.at("/result/capabilities/tools").isObject()).isTrue();
 
         JsonNode list = rpc("tools/list", Map.of());
-        assertThat(list.at("/result/tools").size()).isEqualTo(6);
+        assertThat(list.at("/result/tools").size()).isEqualTo(7);
 
         JsonNode call =
                 rpc("tools/call", Map.of("name", "sports_list_leagues", "arguments", Map.of()));

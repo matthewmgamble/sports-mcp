@@ -8,6 +8,7 @@ import ca.hex42labs.sports.api.dto.TeamDto;
 import ca.hex42labs.sports.application.Refreshed;
 import ca.hex42labs.sports.application.ScoreRefreshCoordinator;
 import ca.hex42labs.sports.application.TeamCatalog;
+import ca.hex42labs.sports.application.TeamDetails;
 import ca.hex42labs.sports.application.TeamResolver;
 import ca.hex42labs.sports.application.TeamResolver.Resolution;
 import ca.hex42labs.sports.config.LeagueRegistry;
@@ -70,6 +71,7 @@ public final class SportsService {
     private final Clock clock;
     private final ZoneId defaultZone;
     private final RefreshGate refreshGate;
+    private final TeamDetails details;
 
     /** Decides whether this caller may bypass freshness windows right now. */
     @FunctionalInterface
@@ -88,6 +90,23 @@ public final class SportsService {
             Clock clock,
             ZoneId defaultZone,
             RefreshGate refreshGate) {
+        this(leagues, teams, resolver, games, scores, clock, defaultZone, refreshGate, null);
+    }
+
+    /**
+     * @param details a team's record, standing and colour; null leaves them out
+     */
+    public SportsService(
+            LeagueRegistry leagues,
+            TeamCatalog teams,
+            TeamResolver resolver,
+            GameRepository games,
+            ScoreRefreshCoordinator scores,
+            Clock clock,
+            ZoneId defaultZone,
+            RefreshGate refreshGate,
+            TeamDetails details) {
+        this.details = details;
         this.leagues = leagues;
         this.teams = teams;
         this.resolver = resolver;
@@ -239,6 +258,48 @@ public final class SportsService {
                 meta(r.sources(), r.asOf(), r.stale(), r.staleReason(), zone, null, null));
     }
 
+    /** One team, with its record, standing and colour this season. */
+    public Envelope<TeamDto> teamDetails(String team, String league) {
+        if (blank(team)) {
+            throw ApiException.invalid(
+                    "team is required: a team id like 'nhl:tor' or a name like 'Maple Leafs'.");
+        }
+        Team t = team(team, blank(league) ? null : league(league));
+        TeamDto base = team(t);
+        if (details == null) {
+            return new Envelope<>(
+                    base,
+                    meta(Set.of(t.provider()), clock.instant(), false, null, null, null, null));
+        }
+        TeamDetails.Result r = details.get(league(t.league()), t);
+        TeamDetails.Details d = r.details();
+        TeamDto dto =
+                d == null
+                        ? base
+                        : new TeamDto(
+                                base.id(),
+                                base.league(),
+                                base.name(),
+                                base.shortName(),
+                                base.abbreviation(),
+                                base.location(),
+                                base.logoUrl(),
+                                d.color(),
+                                d.record(),
+                                d.standing());
+        Set<String> sources = new TreeSet<>(List.of(t.provider(), "espn"));
+        return new Envelope<>(
+                dto,
+                meta(
+                        sources,
+                        r.asOf(),
+                        r.staleReason() != null,
+                        r.staleReason(),
+                        null,
+                        null,
+                        null));
+    }
+
     /** A team's schedule. Without a range: its last 3 and next 5 games. */
     public Envelope<List<GameDto>> teamSchedule(
             String team, String league, String from, String to, Integer limit, String timezone) {
@@ -328,6 +389,7 @@ public final class SportsService {
                         .atZone(zone)
                         .toOffsetDateTime()
                         .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                g.startTimeTbd() ? Boolean.TRUE : null,
                 g.period(),
                 g.periodType() == null ? null : g.periodType().name(),
                 g.clock(),
@@ -342,6 +404,8 @@ public final class SportsService {
                                 g.situation().downDistance(),
                                 g.situation().fieldPosition(),
                                 g.situation().redZone()),
+                g.round(),
+                g.series(),
                 g.provider(),
                 g.fetchedAt());
     }

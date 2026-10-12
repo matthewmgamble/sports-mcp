@@ -23,7 +23,10 @@
         "shortName": {"type": "string"},
         "abbreviation": {"type": "string"},
         "location": {"type": "string"},
-        "logoUrl": {"type": "string", "format": "uri"}
+        "logoUrl": {"type": "string", "format": "uri"},
+        "color": {"type": "string", "description": "Team colour, hex without '#' (one team's details only)"},
+        "record": {"type": "string", "description": "Record in this part of the season, e.g. 3-2-1 (one team's details only)"},
+        "standing": {"type": "string", "description": "e.g. 4th in Atlantic Division (one team's details only)"}
       }
     },
     "Side": {
@@ -61,6 +64,7 @@
         "statusDetail": {"type": "string", "description": "Short human text: 'Q3 5:42', '2nd Intermission', 'Final/OT', 'Top 7th'"},
         "startsAt": {"type": "string", "format": "date-time", "description": "UTC"},
         "localStart": {"type": "string", "format": "date-time", "description": "Start in the requested timezone, with offset"},
+        "startTimeTbd": {"type": "boolean", "description": "Present (true) when the date is set but the start time isn't; startsAt is then a placeholder"},
         "period": {"type": "integer", "description": "Quarter, period, half or inning (live and final games)"},
         "periodType": {"type": "string", "enum": ["REGULATION", "OVERTIME", "SHOOTOUT", "EXTRA_TIME", "PENALTIES", "EXTRA_INNINGS"]},
         "clock": {"type": "string", "description": "Game clock, live games only"},
@@ -69,6 +73,8 @@
         "venue": {"type": "string"},
         "broadcasts": {"type": "array", "items": {"type": "string"}},
         "situation": {"$ref": "#/$defs/Situation"},
+        "round": {"type": "string", "description": "Postseason round or game, e.g. ALCS Game 4"},
+        "series": {"type": "string", "description": "Postseason series standing, e.g. TOR leads 2-1"},
         "source": {"type": "string"},
         "fetchedAt": {"type": "string", "format": "date-time", "description": "When this state was fetched from upstream"}
       }

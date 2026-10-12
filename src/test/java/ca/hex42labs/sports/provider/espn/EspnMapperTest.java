@@ -284,4 +284,41 @@ class EspnMapperTest {
                 .isEqualTo(Instant.parse("2026-10-13T00:15:00Z"));
         assertThat(EspnMapper.parseInstant("garbage")).isNull();
     }
+
+    @Test
+    void postseasonGamesCarryTheirRoundAndSeries() {
+        var sb = board("mlb", "espn/mlb/scoreboard-20261016-postseason");
+        Game nlcs = game(sb, "mlb:401908034");
+        assertThat(nlcs.round()).isEqualTo("NLCS Game 5 If Necessary");
+        assertThat(nlcs.series()).isEqualTo("MIL leads series 1-0");
+        assertThat(nlcs.startTimeTbd()).isFalse();
+        // A regular-season game has neither.
+        Game regular = board("nfl", "espn/nfl/scoreboard-20260913-final-ot").games().get(0);
+        assertThat(regular.round()).isNull();
+        assertThat(regular.series()).isNull();
+    }
+
+    @Test
+    void aGameWithoutAStartTimeYetIsMarked() {
+        Game ws = board("mlb", "espn/mlb/scoreboard-20261024-tbd").games().get(0);
+        assertThat(ws.startTimeTbd()).isTrue();
+        assertThat(ws.round()).isEqualTo("World Series Game 2");
+    }
+
+    @Test
+    void teamDetailsComeFromTheTeamScheduleAndHideAnEmptyPlayoffRecord() {
+        var d = EspnTeamDetails.details(Fixtures.json("espn/nfl/team-schedule-gb").path("team"));
+        assertThat(d)
+                .isEqualTo(
+                        new ca.hex42labs.sports.application.TeamDetails.Details(
+                                "204e32", "3-2", "2nd in NFC North"));
+        var out =
+                EspnTeamDetails.details(
+                        new com.fasterxml.jackson.databind.ObjectMapper()
+                                .createObjectNode()
+                                .put("recordSummary", "0-0-0")
+                                .put("standingSummary", "5th in Atlantic Division"));
+        assertThat(out.record()).isNull();
+        assertThat(out.color()).isNull();
+    }
 }

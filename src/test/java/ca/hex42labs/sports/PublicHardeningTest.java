@@ -136,7 +136,7 @@ class PublicHardeningTest {
             assertThat(call.at("/result/content/0/text").asText()).startsWith("rate_limited:");
             // ...but discovery calls aren't counted.
             assertThat(mcpRaw(base, "tools/list", Map.of(), null).at("/result/tools").size())
-                    .isEqualTo(6);
+                    .isEqualTo(7);
 
             // Spoofed forwarding headers from an untrusted peer don't buy a fresh bucket.
             HttpResponse<String> spoofed =

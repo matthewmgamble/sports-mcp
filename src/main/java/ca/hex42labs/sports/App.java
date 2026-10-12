@@ -16,6 +16,7 @@ import ca.hex42labs.sports.application.ScoreRefreshCoordinator;
 import ca.hex42labs.sports.application.SyncPlanner;
 import ca.hex42labs.sports.application.TeamAliases;
 import ca.hex42labs.sports.application.TeamCatalog;
+import ca.hex42labs.sports.application.TeamDetails;
 import ca.hex42labs.sports.application.TeamResolver;
 import ca.hex42labs.sports.config.AppConfig;
 import ca.hex42labs.sports.config.LeagueRegistry;
@@ -29,6 +30,7 @@ import ca.hex42labs.sports.provider.Providers;
 import ca.hex42labs.sports.provider.ResilientProvider;
 import ca.hex42labs.sports.provider.UpstreamHttp;
 import ca.hex42labs.sports.provider.espn.EspnProvider;
+import ca.hex42labs.sports.provider.espn.EspnTeamDetails;
 import ca.hex42labs.sports.provider.mlb.MlbProvider;
 import ca.hex42labs.sports.provider.mlb.MlbWithEspnFallback;
 import ca.hex42labs.sports.provider.nhl.NhlProvider;
@@ -168,7 +170,9 @@ public final class App implements AutoCloseable {
                         scores,
                         clock,
                         config.defaultTimezone(),
-                        refreshGate);
+                        refreshGate,
+                        new TeamDetails(
+                                new EspnTeamDetails(upstream, config.espnBaseUrl(), espn), clock));
         this.mcp = McpServerFactory.create(config, json, sports);
         PublicTrafficFilter traffic =
                 new PublicTrafficFilter(

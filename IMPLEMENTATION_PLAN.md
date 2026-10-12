@@ -355,6 +355,12 @@ NHL schedule/score mappers, MLB schedule/linescore mappers with 406 fallback, `S
 Rate limiting/client identity, management port, CORS/Origin checks, IP hashing, Micrometer metrics (upstream calls/latency/errors, coalescing savings, cache hits, sync age, stale responses, breaker state, unmapped statuses), Dockerfile + Compose, GHCR publishing, landing page, README (self-host + hosted usage + attribution + disclaimer), runbook (schema breakage, provider kill switch, resync), WireMock fault suite (429/500/slow/truncated/changed fields), load test (k6 or JUnit) asserting the upstream call budget. VPS provisioning + Cloudflare once you give the go-ahead.
 **Acceptance:** dev plan §10 Sprint 5 scenarios pass; a sustained anonymous flood from one IP gets 429s without raising upstream call volume; v0.1.0 tagged and the image published.
 
+### Sprint 6: Details for dashboards (Ack)
+*Implementation notes (2026-10-12):* Ack's "Your teams" card moved from ESPN to sports-mcp, so the things it showed that sports-mcp lacked were added here.
+- **Games** gain `round` and `series` (postseason only) and `startTimeTbd` (V3 migration). ESPN: `notes[0].headline` and `competitions[0].series.summary`, `timeValid` (on the competition in scoreboards). MLB: `description`, plus `seriesStatus` (now hydrated) turned into "MIL leads 1-0" (it names the leader by team id only). NHL: `seriesStatus` (title, or a name from the round number; top/bottom seed wins). Team schedules don't carry ESPN's series, so the upsert keeps the stored `round`/`series` when an update has none.
+- **`GET /api/v1/teams/{team}`** and the **`sports_get_team`** tool: one team with `color`, `record` and `standing`, from ESPN's team schedule endpoint for every league (the canonical id's key is the one ESPN takes, NHL and MLB included). Cached 30 minutes per team (`TeamDetails`), served stale when ESPN fails, and called under the ESPN provider's rate limit and breaker. Lists don't include these fields.
+- 335 tests. Checked live: Leafs `3-2-1`, `4th in Atlantic Division`; the NLCS game showed `NLCS Game 2`, `MIL leads 1-0`.
+
 **Total: ~24–32 engineering days.**
 
 ## 13. Testing

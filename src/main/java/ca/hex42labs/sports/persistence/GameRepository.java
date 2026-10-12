@@ -23,7 +23,7 @@ public final class GameRepository {
             "id, league, provider, provider_event_id, season, season_type, home_team_id,"
                     + " away_team_id, starts_at, status, status_detail, period, period_type, clock,"
                     + " home_score, away_score, home_shootout, away_shootout, venue, broadcasts_json,"
-                    + " situation_json, fetched_at, provider_updated_at";
+                    + " situation_json, fetched_at, provider_updated_at, round, series, start_time_tbd";
 
     /**
      * Idempotent upsert keyed on the canonical id. The {@code WHERE} guard makes {@code fetched_at}
@@ -35,7 +35,7 @@ public final class GameRepository {
             "INSERT INTO games ("
                     + COLUMNS
                     + ", created_at, updated_at)"
-                    + " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+                    + " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
                     + " ON CONFLICT(id) DO UPDATE SET"
                     + "   season = excluded.season,"
                     + "   season_type = excluded.season_type,"
@@ -56,6 +56,11 @@ public final class GameRepository {
                     + "   situation_json = excluded.situation_json,"
                     + "   fetched_at = excluded.fetched_at,"
                     + "   provider_updated_at = excluded.provider_updated_at,"
+                    // Team schedules don't carry the series: a scoreboard's stays until another
+                    // scoreboard replaces it.
+                    + "   round = COALESCE(excluded.round, games.round),"
+                    + "   series = COALESCE(excluded.series, games.series),"
+                    + "   start_time_tbd = excluded.start_time_tbd,"
                     + "   updated_at = excluded.updated_at"
                     + " WHERE excluded.fetched_at >= games.fetched_at"
                     // Original-date listing of a postponed game vs. its later makeup (same id).
@@ -335,6 +340,9 @@ public final class GameRepository {
         ps.setString(i++, json.write(g.situation()));
         ps.setString(i++, Timestamps.format(g.fetchedAt()));
         ps.setString(i++, Timestamps.format(g.providerUpdatedAt()));
+        ps.setString(i++, g.round());
+        ps.setString(i++, g.series());
+        ps.setInt(i++, g.startTimeTbd() ? 1 : 0);
         ps.setString(i++, now);
         ps.setString(i, now);
     }
@@ -390,7 +398,10 @@ public final class GameRepository {
                 json.strings(rs.getString("broadcasts_json")),
                 json.read(rs.getString("situation_json"), Game.Situation.class),
                 Timestamps.parse(rs.getString("fetched_at")),
-                Timestamps.parse(rs.getString("provider_updated_at")));
+                Timestamps.parse(rs.getString("provider_updated_at")),
+                rs.getString("round"),
+                rs.getString("series"),
+                rs.getInt("start_time_tbd") != 0);
     }
 
     private static Integer getInt(ResultSet rs, String column) throws SQLException {

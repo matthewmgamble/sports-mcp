@@ -71,7 +71,7 @@ public final class MlbProvider implements SportsProvider {
 
     private static final String LOGO_URL = "https://a.espncdn.com/i/teamlogos/mlb/500/%s.png";
 
-    private static final String HYDRATE = "&hydrate=linescore,team";
+    private static final String HYDRATE = "&hydrate=linescore,team,seriesStatus";
 
     /** Gap between per-day fallback requests (they run inside one rate-limiter permit). */
     static final Duration FALLBACK_PACE = Duration.ofSeconds(1);

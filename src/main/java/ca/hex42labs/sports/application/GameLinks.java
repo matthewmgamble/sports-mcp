@@ -181,6 +181,9 @@ public final class GameLinks implements GameLinker {
                 g.broadcasts(),
                 g.situation(),
                 g.fetchedAt(),
-                g.providerUpdatedAt());
+                g.providerUpdatedAt(),
+                g.round(),
+                g.series(),
+                g.startTimeTbd());
     }
 }

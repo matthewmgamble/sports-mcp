@@ -11,6 +11,10 @@ import java.util.List;
  * @param startsAt UTC
  * @param localStart start in the request's timezone, ISO-8601 with offset
  * @param fetchedAt when this state was pulled from upstream
+ * @param startTimeTbd true when the date is set but the time isn't ({@code startsAt} is a
+ *     placeholder); otherwise absent
+ * @param round postseason: the round or game ("ALCS Game 4")
+ * @param series postseason: the series standing ("TOR leads 2-1")
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public record GameDto(
@@ -20,6 +24,7 @@ public record GameDto(
         String statusDetail,
         Instant startsAt,
         String localStart,
+        Boolean startTimeTbd,
         Integer period,
         String periodType,
         String clock,
@@ -28,6 +33,8 @@ public record GameDto(
         String venue,
         List<String> broadcasts,
         Situation situation,
+        String round,
+        String series,
         String source,
         Instant fetchedAt) {
 

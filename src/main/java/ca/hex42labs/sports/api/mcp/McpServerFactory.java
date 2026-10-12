@@ -184,6 +184,11 @@ public final class McpServerFactory {
                             e,
                             McpSummaries.games(
                                     "%d game(s):", e, "No games found for that team and range."));
+                },
+                "sports_get_team",
+                a -> {
+                    var e = s.teamDetails(a.str("team"), a.str("league"));
+                    return new ToolResult(e, McpSummaries.team(e));
                 });
     }
 

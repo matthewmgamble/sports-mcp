@@ -20,6 +20,8 @@ final class McpSummaries {
     /** Lines of detail before "... and N more". */
     static final int MAX_LINES = 12;
 
+    private static final DateTimeFormatter DAY =
+            DateTimeFormatter.ofPattern("EEE MMM d", Locale.ENGLISH);
     private static final DateTimeFormatter DAY_TIME =
             DateTimeFormatter.ofPattern("EEE MMM d, h:mm a", Locale.ENGLISH);
 
@@ -42,6 +44,23 @@ final class McpSummaries {
                         + (Boolean.TRUE.equals(e.meta().truncated()) ? "+" : "")
                         + " team(s):",
                 e.data().stream().map(t -> t.name() + " (" + t.id() + ")").toList(),
+                e.meta());
+    }
+
+    /** "Toronto Maple Leafs (nhl:tor): 3-2-1, 4th in Atlantic Division." */
+    static String team(Envelope<TeamDto> e) {
+        TeamDto t = e.data();
+        List<String> season =
+                java.util.stream.Stream.of(t.record(), t.standing())
+                        .filter(java.util.Objects::nonNull)
+                        .toList();
+        return withStale(
+                t.name()
+                        + " ("
+                        + t.id()
+                        + ")"
+                        + (season.isEmpty() ? "" : ": " + String.join(", ", season))
+                        + ".",
                 e.meta());
     }
 
@@ -76,13 +95,27 @@ final class McpSummaries {
                         : away + " @ " + home;
         String when =
                 switch (g.status()) {
-                    case "SCHEDULED" -> OffsetDateTime.parse(g.localStart()).format(DAY_TIME);
+                    case "SCHEDULED" ->
+                            Boolean.TRUE.equals(g.startTimeTbd())
+                                    ? OffsetDateTime.parse(g.localStart()).format(DAY)
+                                            + ", time TBD"
+                                    : OffsetDateTime.parse(g.localStart()).format(DAY_TIME);
                     case "LIVE" ->
                             (g.statusDetail() == null ? "in progress" : g.statusDetail())
                                     + " (LIVE)";
                     default -> g.statusDetail() == null ? g.status() : g.statusDetail();
                 };
-        return matchup + " - " + when + " [" + g.id() + "]";
+        String postseason =
+                java.util.stream.Stream.of(g.round(), g.series())
+                        .filter(java.util.Objects::nonNull)
+                        .collect(Collectors.joining(", "));
+        return matchup
+                + " - "
+                + when
+                + (postseason.isEmpty() ? "" : " (" + postseason + ")")
+                + " ["
+                + g.id()
+                + "]";
     }
 
     private static String label(GameDto.Side s) {

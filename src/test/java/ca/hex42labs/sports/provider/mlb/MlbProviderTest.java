@@ -255,7 +255,7 @@ class MlbProviderTest {
                         getRequestedFor(urlPathEqualTo("/schedule"))
                                 .withQueryParam("startDate", equalTo("2026-09-22"))
                                 .withQueryParam("endDate", equalTo("2026-09-23"))
-                                .withQueryParam("hydrate", equalTo("linescore,team")));
+                                .withQueryParam("hydrate", equalTo("linescore,team,seriesStatus")));
     }
 
     @Test
@@ -441,5 +441,54 @@ class MlbProviderTest {
         assertThat(batch.games()).hasSize(15);
         assertThat(batch.teams()).hasSize(30);
         assertThat(Optional.of(batch.fetchedAt())).contains(NOW);
+    }
+
+    @Test
+    void postseasonGamesCarryTheirRoundAndSeries() {
+        Game alcs = byId(games("mlb/schedule-20261016-postseason"), "mlb:849817");
+        assertThat(alcs.round()).isEqualTo("ALCS Game 4");
+        assertThat(alcs.startTimeTbd()).isFalse();
+
+        Team mil =
+                new Team(
+                        "mlb:mil",
+                        "mlb",
+                        "mlb",
+                        "158",
+                        "Milwaukee Brewers",
+                        "Brewers",
+                        "MIL",
+                        "Milwaukee",
+                        null,
+                        List.of());
+        Team lad =
+                new Team(
+                        "mlb:lad",
+                        "mlb",
+                        "mlb",
+                        "119",
+                        "Los Angeles Dodgers",
+                        "Dodgers",
+                        "LAD",
+                        "Los Angeles",
+                        null,
+                        List.of());
+        ObjectNode s = new ObjectMapper().createObjectNode();
+        s.put("wins", 0).put("losses", 0).put("isTied", true);
+        assertThat(MlbMapper.series(s, mil, "158", lad)).isNull(); // before game 1
+        s.put("wins", 1)
+                .put("losses", 0)
+                .put("isTied", false)
+                .putObject("winningTeam")
+                .put("id", 158);
+        assertThat(MlbMapper.series(s, mil, "158", lad)).isEqualTo("MIL leads 1-0");
+        s.put("wins", 4)
+                .put("losses", 2)
+                .put("isOver", true)
+                .putObject("winningTeam")
+                .put("id", 119);
+        assertThat(MlbMapper.series(s, mil, "158", lad)).isEqualTo("LAD wins 4-2");
+        s.put("wins", 2).put("losses", 2).put("isTied", true);
+        assertThat(MlbMapper.series(s, mil, "158", lad)).isEqualTo("Series tied 2-2");
     }
 }

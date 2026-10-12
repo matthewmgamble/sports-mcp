@@ -14,7 +14,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-/** MLB Stats API schedule JSON ({@code hydrate=linescore,team}) to domain objects. */
+/** MLB Stats API schedule JSON ({@code hydrate=linescore,team,seriesStatus}) to domain objects. */
 final class MlbMapper {
 
     /**
@@ -22,6 +22,9 @@ final class MlbMapper {
      * Spring training (S) and exhibitions (E) are excluded.
      */
     static final Set<String> GAME_TYPES = Set.of("R", "F", "D", "L", "W", "A");
+
+    /** Wild card, division series, LCS, World Series. */
+    static final Set<String> POSTSEASON_TYPES = Set.of("F", "D", "L", "W");
 
     private MlbMapper() {}
 
@@ -58,6 +61,7 @@ final class MlbMapper {
                                 : PeriodType.REGULATION)
                         : null;
         boolean scored = status.hasScore();
+        boolean postseason = POSTSEASON_TYPES.contains(g.path("gameType").asText());
 
         return Optional.of(
                 new Game(
@@ -83,7 +87,38 @@ final class MlbMapper {
                         List.of(),
                         null,
                         fetchedAt,
-                        null));
+                        null,
+                        postseason ? g.path("description").asText(null) : null,
+                        postseason
+                                ? series(
+                                        g.path("seriesStatus"),
+                                        homeTeam.get(),
+                                        home.path("team").path("id").asText(""),
+                                        awayTeam.get())
+                                : null,
+                        g.path("status").path("startTimeTBD").asBoolean(false)));
+    }
+
+    /**
+     * "MIL leads 1-0", "Series tied 2-2", "LAD wins 4-2" from {@code seriesStatus}, which names the
+     * leader by MLB team id only. Nothing before a series' first game is played.
+     */
+    static String series(JsonNode s, Team home, String homeMlbId, Team away) {
+        if (!s.isObject() || s.path("wins").asInt(0) + s.path("losses").asInt(0) == 0) {
+            return null;
+        }
+        int wins = s.path("wins").asInt();
+        int losses = s.path("losses").asInt();
+        if (s.path("isTied").asBoolean(false)) {
+            return "Series tied " + wins + "-" + losses;
+        }
+        String leaderId = s.path("winningTeam").path("id").asText("");
+        String leader = leaderId.equals(homeMlbId) ? home.abbreviation() : away.abbreviation();
+        return leader
+                + (s.path("isOver").asBoolean(false) ? " wins " : " leads ")
+                + wins
+                + "-"
+                + losses;
     }
 
     /**
@@ -175,7 +210,10 @@ final class MlbMapper {
                 g.broadcasts(),
                 g.situation(),
                 fetchedAt,
-                g.providerUpdatedAt());
+                g.providerUpdatedAt(),
+                g.round(),
+                g.series(),
+                g.startTimeTbd());
     }
 
     private static final Pattern HALF_INNING =

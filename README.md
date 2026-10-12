@@ -4,7 +4,7 @@ Live scores, schedules and team information for AI agents (MCP) and regular apps
 
 > **Status: v0.1 release candidate.** MCP tools and REST over background-synced schedules and
 > on-demand live scores, with per-client rate limits, metrics and a Docker deployment.
-> See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) and the [runbook](docs/RUNBOOK.md).
+> The [runbook](docs/RUNBOOK.md).
 
 **Leagues:** NFL, NHL, NBA, MLB, NCAA football, NCAA men's basketball, Premier League, La Liga,
 Bundesliga.
@@ -51,10 +51,13 @@ Cloudflare or another proxy so rate limits see real client IPs, and keep the man
 | `sports_get_live_scores` | Everything in progress now (optionally one league or team) |
 | `sports_get_game` | One game by id |
 | `sports_get_team_schedule` | A team's last 3 results and next 5 games, or a date range |
+| `sports_get_team` | One team's season so far: record, standing and colour |
 
 Team arguments take ids (`nhl:tor`) or names (`Maple Leafs`); ambiguous names return the
 candidates. Every result has `structuredContent` (`{data, meta}`) plus a text summary;
-`meta.isStale` and `meta.staleReason` say when upstream couldn't be reached.
+`meta.isStale` and `meta.staleReason` say when upstream couldn't be reached. Postseason games carry
+`round` ("ALCS Game 4") and `series` ("TOR leads 2-1"); `startTimeTbd: true` marks a game whose
+date is set but time isn't.
 
 ## REST
 
@@ -64,6 +67,7 @@ The same operations and the same envelope ([OpenAPI 3.1](http://localhost:8080/o
 curl "localhost:8080/api/v1/games?league=nhl&date=today&tz=America/Toronto"
 curl "localhost:8080/api/v1/games/live"
 curl "localhost:8080/api/v1/teams/leafs/schedule"
+curl "localhost:8080/api/v1/teams/nhl:tor"            # record, standing, colour
 curl "localhost:8080/api/v1/teams?search=packers"
 curl "localhost:8080/api/v1/games/nfl:401872994?refresh=true"
 ```

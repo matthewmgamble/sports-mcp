@@ -133,6 +133,8 @@ final class EspnMapper {
                 played && status.hasNonNull("period") ? status.path("period").asInt() : null;
 
         JsonNode season = ev.path("season");
+        int seasonTypeId = season.path("type").asInt(ev.path("seasonType").path("type").asInt(0));
+        boolean postseason = seasonTypeId == 3;
         return Optional.of(
                 new Game(
                         Ids.game(league.id(), eventId),
@@ -141,10 +143,7 @@ final class EspnMapper {
                         eventId,
                         season.hasNonNull("year") ? season.path("year").asText() : null,
                         // Scoreboards put the type on season; team schedules on seasonType.
-                        seasonType(
-                                season.path("type")
-                                        .asInt(ev.path("seasonType").path("type").asInt(0)),
-                                text(season, "slug")),
+                        seasonType(seasonTypeId, text(season, "slug")),
                         homeTeam.get().id(),
                         awayTeam.get().id(),
                         startsAt,
@@ -170,7 +169,29 @@ final class EspnMapper {
                                 ? situation(comp, home, away, homeTeam.get(), awayTeam.get())
                                 : null,
                         fetchedAt,
-                        null));
+                        null,
+                        postseason ? round(comp) : null,
+                        // Scoreboards carry the series; team schedules don't.
+                        postseason ? text(comp.path("series"), "summary") : null,
+                        timeTbd(ev, comp)));
+    }
+
+    /** {@code timeValid: false} (on the competition in scoreboards, the event in schedules). */
+    static boolean timeTbd(JsonNode ev, JsonNode comp) {
+        JsonNode valid =
+                comp.path("timeValid").isBoolean() ? comp.path("timeValid") : ev.path("timeValid");
+        return valid.isBoolean() && !valid.asBoolean();
+    }
+
+    /** "ALCS - Game 4" to "ALCS Game 4"; "NLCS - Game 5 If Necessary" keeps its "If Necessary". */
+    static String round(JsonNode comp) {
+        for (JsonNode note : comp.path("notes")) {
+            String headline = text(note, "headline");
+            if (headline != null) {
+                return headline.replace(" - ", " ").strip();
+            }
+        }
+        return null;
     }
 
     static PeriodType periodType(

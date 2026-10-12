@@ -99,6 +99,21 @@
         }
       }
     },
+    "/api/v1/teams/{team}": {
+      "get": {
+        "operationId": "getTeam",
+        "summary": "One team, with its record, standing and colour this season",
+        "parameters": [
+          {"name": "team", "in": "path", "required": true, "schema": {"type": "string"}, "example": "nhl:tor"},
+          {"name": "league", "in": "query", "schema": {"type": "string"}, "description": "Disambiguates a team name"}
+        ],
+        "responses": {
+          "200": {"description": "The team", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TeamOne"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "404": {"$ref": "#/components/responses/NotFound"}
+        }
+      }
+    },
     "/api/v1/teams/{team}/schedule": {
       "get": {
         "operationId": "teamSchedule",
