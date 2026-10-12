@@ -4,6 +4,7 @@ import ca.hex42labs.sports.domain.League;
 import ca.hex42labs.sports.domain.Team;
 import ca.hex42labs.sports.provider.ProviderBatch;
 import ca.hex42labs.sports.provider.ProviderException;
+import ca.hex42labs.sports.provider.ScheduleResult;
 import ca.hex42labs.sports.provider.SportsProvider;
 import ca.hex42labs.sports.provider.UpstreamHttp;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -51,6 +52,21 @@ public final class EspnProvider implements SportsProvider {
         Instant fetchedAt = clock.instant();
         EspnMapper.Scoreboard sb = EspnMapper.scoreboard(league, root, fetchedAt);
         return new ProviderBatch(league.id(), bucket, sb.games(), sb.teams(), fetchedAt);
+    }
+
+    /** One request per day: ESPN rejects date ranges. A failed day doesn't sink the window. */
+    @Override
+    public ScheduleResult fetchSchedule(League league, LocalDate from, LocalDate to)
+            throws ProviderException {
+        ScheduleResult.Builder result = new ScheduleResult.Builder();
+        for (LocalDate day = from; !day.isAfter(to); day = day.plusDays(1)) {
+            try {
+                result.add(fetchScoreboard(league, day));
+            } catch (ProviderException e) {
+                result.fail(day.toString(), e);
+            }
+        }
+        return result.build(clock.instant());
     }
 
     // League paths and queries come from the registry allowlist, never from user input.

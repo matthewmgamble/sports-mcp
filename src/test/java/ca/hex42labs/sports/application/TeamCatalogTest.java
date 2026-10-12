@@ -58,7 +58,7 @@ class TeamCatalogTest {
         try (Database db = Database.open(path)) {
             TeamCatalog c = catalog(db, clock);
             c.load();
-            c.syncStale(Duration.ofHours(24));
+            c.syncStale(Duration.ofHours(24), Duration.ofMinutes(5));
             for (String league : TestLeagues.REGISTRY.enabledIds()) {
                 assertThat(c.byLeague(league)).as(league).isNotEmpty();
             }
@@ -79,13 +79,13 @@ class TeamCatalogTest {
     void freshCatalogsAreNotRefetched() {
         try (Database db = Database.open(tmp.resolve("c.db").toString())) {
             TeamCatalog c = catalog(db, Clock.fixed(NOW, ZoneOffset.UTC));
-            c.syncStale(Duration.ofHours(24));
+            c.syncStale(Duration.ofHours(24), Duration.ofMinutes(5));
             int calls = nhl.teamCalls.get();
             catalog(db, Clock.fixed(NOW.plus(Duration.ofHours(23)), ZoneOffset.UTC))
-                    .syncStale(Duration.ofHours(24));
+                    .syncStale(Duration.ofHours(24), Duration.ofMinutes(5));
             assertThat(nhl.teamCalls.get()).isEqualTo(calls);
             catalog(db, Clock.fixed(NOW.plus(Duration.ofHours(25)), ZoneOffset.UTC))
-                    .syncStale(Duration.ofHours(24));
+                    .syncStale(Duration.ofHours(24), Duration.ofMinutes(5));
             assertThat(nhl.teamCalls.get()).isEqualTo(calls + 1);
         }
     }

@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import ca.hex42labs.sports.provider.ProviderBatch;
 import ca.hex42labs.sports.provider.ProviderException;
+import ca.hex42labs.sports.provider.ScheduleResult;
 import ca.hex42labs.sports.provider.UpstreamHttp;
 import ca.hex42labs.sports.testing.TestLeagues;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -78,6 +79,52 @@ class EspnProviderTest {
                                 provider(wm)
                                         .fetchScoreboard(
                                                 TestLeagues.get("nfl"), LocalDate.of(2026, 10, 12)))
+                .isInstanceOf(ProviderException.class);
+    }
+
+    @Test
+    void scheduleIsOneRequestPerDayAndSurvivesABadDay(WireMockRuntimeInfo wm) throws Exception {
+        stubGz(
+                wm,
+                "/football/nfl/scoreboard?dates=20260913",
+                "espn/nfl/scoreboard-20260913-final-ot");
+        wm.getWireMock()
+                .register(
+                        get(urlEqualTo("/football/nfl/scoreboard?dates=20260914"))
+                                .willReturn(aResponse().withStatus(502)));
+        stubGz(
+                wm,
+                "/football/nfl/scoreboard?dates=20260915",
+                "espn/nfl/scoreboard-20260715-offseason");
+        ScheduleResult r =
+                provider(wm)
+                        .fetchSchedule(
+                                TestLeagues.get("nfl"),
+                                LocalDate.of(2026, 9, 13),
+                                LocalDate.of(2026, 9, 15));
+        assertThat(r.games()).hasSize(13);
+        assertThat(r.failures())
+                .singleElement()
+                .asString()
+                .startsWith("2026-09-14")
+                .contains("502");
+        assertThat(r.fetchedAt()).isEqualTo(NOW);
+    }
+
+    @Test
+    void scheduleThrowsWhenEveryDayFails(WireMockRuntimeInfo wm) {
+        wm.getWireMock()
+                .register(
+                        get(com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo(
+                                        "/football/nfl/scoreboard"))
+                                .willReturn(aResponse().withStatus(503)));
+        assertThatThrownBy(
+                        () ->
+                                provider(wm)
+                                        .fetchSchedule(
+                                                TestLeagues.get("nfl"),
+                                                LocalDate.of(2026, 9, 13),
+                                                LocalDate.of(2026, 9, 14)))
                 .isInstanceOf(ProviderException.class);
     }
 

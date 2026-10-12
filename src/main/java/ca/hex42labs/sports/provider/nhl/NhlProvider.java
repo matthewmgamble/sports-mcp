@@ -1,17 +1,22 @@
 package ca.hex42labs.sports.provider.nhl;
 
+import ca.hex42labs.sports.domain.Game;
 import ca.hex42labs.sports.domain.Ids;
 import ca.hex42labs.sports.domain.League;
 import ca.hex42labs.sports.domain.Team;
 import ca.hex42labs.sports.provider.ProviderBatch;
 import ca.hex42labs.sports.provider.ProviderException;
+import ca.hex42labs.sports.provider.ScheduleResult;
 import ca.hex42labs.sports.provider.SeedTeams;
 import ca.hex42labs.sports.provider.SportsProvider;
 import ca.hex42labs.sports.provider.UpstreamHttp;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.net.URI;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -30,12 +35,17 @@ public final class NhlProvider implements SportsProvider {
 
     private static final String LOGO_URL = "https://a.espncdn.com/i/teamlogos/nhl/500/%s.png";
 
+    /** Safety bound on weekly pages per window (a 16-day window needs 3). */
+    private static final int MAX_PAGES = 8;
+
     private final UpstreamHttp http;
     private final String baseUrl;
+    private final Clock clock;
 
-    public NhlProvider(UpstreamHttp http, String baseUrl) {
+    public NhlProvider(UpstreamHttp http, String baseUrl, Clock clock) {
         this.http = http;
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        this.clock = clock;
     }
 
     @Override
@@ -95,8 +105,63 @@ public final class NhlProvider implements SportsProvider {
         return teams;
     }
 
+    /** {@code score/{date}}: every game that day, with live clocks, in one call. */
     @Override
-    public ProviderBatch fetchScoreboard(League league, LocalDate bucket) {
-        throw new UnsupportedOperationException("NHL scoreboard arrives in Sprint 2");
+    public ProviderBatch fetchScoreboard(League league, LocalDate bucket) throws ProviderException {
+        JsonNode root = http.getJson(ID, URI.create(baseUrl + "/score/" + bucket));
+        Instant fetchedAt = clock.instant();
+        Map<String, Team> teams = new LinkedHashMap<>();
+        List<Game> games = new ArrayList<>();
+        for (JsonNode g : root.path("games")) {
+            NhlMapper.game(g, fetchedAt, teams).ifPresent(games::add);
+        }
+        return new ProviderBatch(
+                league.id(), bucket, games, List.copyOf(teams.values()), fetchedAt);
+    }
+
+    /**
+     * {@code schedule/{date}} returns a 7-day {@code gameWeek} plus {@code nextStartDate}; page
+     * through until the window is covered. Days outside the window are dropped.
+     */
+    @Override
+    public ScheduleResult fetchSchedule(League league, LocalDate from, LocalDate to)
+            throws ProviderException {
+        ScheduleResult.Builder result = new ScheduleResult.Builder();
+        LocalDate page = from;
+        for (int i = 0; i < MAX_PAGES && page != null && !page.isAfter(to); i++) {
+            JsonNode root;
+            try {
+                root = http.getJson(ID, URI.create(baseUrl + "/schedule/" + page));
+            } catch (ProviderException e) {
+                result.fail(page.toString(), e);
+                page = page.plusDays(7);
+                continue;
+            }
+            Instant fetchedAt = clock.instant();
+            Map<String, Team> teams = new LinkedHashMap<>();
+            List<Game> games = new ArrayList<>();
+            for (JsonNode day : root.path("gameWeek")) {
+                LocalDate date = LocalDate.parse(day.path("date").asText());
+                if (date.isBefore(from) || date.isAfter(to)) {
+                    continue;
+                }
+                for (JsonNode g : day.path("games")) {
+                    NhlMapper.game(g, fetchedAt, teams).ifPresent(games::add);
+                }
+            }
+            result.add(games, List.copyOf(teams.values()), fetchedAt);
+            String next = root.path("nextStartDate").asText(null);
+            if (next == null) {
+                break; // nothing scheduled after this page (off-season)
+            }
+            // nextStartDate skips empty weeks. If it ever fails to move forward, stop rather
+            // than loop: the window is covered as far as upstream can tell us.
+            LocalDate nextPage = LocalDate.parse(next);
+            if (!nextPage.isAfter(page)) {
+                break;
+            }
+            page = nextPage;
+        }
+        return result.build(clock.instant());
     }
 }

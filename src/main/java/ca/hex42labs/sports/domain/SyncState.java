@@ -15,6 +15,9 @@ public record SyncState(
 
     public enum Kind {
         TEAMS,
-        SCHEDULE
+        /** Full look-ahead window (D-1 .. D+horizon), every 6 hours. */
+        SCHEDULE,
+        /** Next 48 hours, every 30 minutes. */
+        SCHEDULE_NEAR
     }
 }

@@ -13,37 +13,54 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 
 public final class GameRepository {
 
     private static final String COLUMNS =
             "id, league, provider, provider_event_id, season, season_type, home_team_id,"
-                + " away_team_id, starts_at, status, status_detail, period, period_type, clock,"
-                + " home_score, away_score, home_shootout, away_shootout, venue, broadcasts_json,"
-                + " situation_json, fetched_at, provider_updated_at";
+                    + " away_team_id, starts_at, status, status_detail, period, period_type, clock,"
+                    + " home_score, away_score, home_shootout, away_shootout, venue, broadcasts_json,"
+                    + " situation_json, fetched_at, provider_updated_at";
 
     /**
      * Idempotent upsert keyed on the canonical id. The {@code WHERE} guard makes {@code fetched_at}
      * monotonic: a slow fetch that completes late never overwrites fresher data. Rescheduled games
-     * simply update {@code starts_at}/{@code status} in place.
+     * update {@code starts_at}/{@code status} in place, except that a stale "postponed" listing for
+     * an earlier date can't overwrite the makeup game.
      */
     private static final String UPSERT =
             "INSERT INTO games ("
                     + COLUMNS
-                    + ", created_at, updated_at) VALUES"
-                    + " (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO"
-                    + " UPDATE SET season = excluded.season, season_type = excluded.season_type,"
-                    + " home_team_id = excluded.home_team_id, away_team_id = excluded.away_team_id,"
-                    + " starts_at = excluded.starts_at, status = excluded.status, status_detail ="
-                    + " excluded.status_detail, period = excluded.period, period_type ="
-                    + " excluded.period_type, clock = excluded.clock, home_score ="
-                    + " excluded.home_score, away_score = excluded.away_score, home_shootout ="
-                    + " excluded.home_shootout, away_shootout = excluded.away_shootout, venue ="
-                    + " excluded.venue, broadcasts_json = excluded.broadcasts_json, situation_json"
-                    + " = excluded.situation_json, fetched_at = excluded.fetched_at,"
-                    + " provider_updated_at = excluded.provider_updated_at, updated_at ="
-                    + " excluded.updated_at WHERE excluded.fetched_at >= games.fetched_at";
+                    + ", created_at, updated_at)"
+                    + " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+                    + " ON CONFLICT(id) DO UPDATE SET"
+                    + "   season = excluded.season,"
+                    + "   season_type = excluded.season_type,"
+                    + "   home_team_id = excluded.home_team_id,"
+                    + "   away_team_id = excluded.away_team_id,"
+                    + "   starts_at = excluded.starts_at,"
+                    + "   status = excluded.status,"
+                    + "   status_detail = excluded.status_detail,"
+                    + "   period = excluded.period,"
+                    + "   period_type = excluded.period_type,"
+                    + "   clock = excluded.clock,"
+                    + "   home_score = excluded.home_score,"
+                    + "   away_score = excluded.away_score,"
+                    + "   home_shootout = excluded.home_shootout,"
+                    + "   away_shootout = excluded.away_shootout,"
+                    + "   venue = excluded.venue,"
+                    + "   broadcasts_json = excluded.broadcasts_json,"
+                    + "   situation_json = excluded.situation_json,"
+                    + "   fetched_at = excluded.fetched_at,"
+                    + "   provider_updated_at = excluded.provider_updated_at,"
+                    + "   updated_at = excluded.updated_at"
+                    + " WHERE excluded.fetched_at >= games.fetched_at"
+                    // Original-date listing of a postponed game vs. its later makeup (same id).
+                    + "   AND NOT (excluded.status = 'POSTPONED' AND games.status <> 'POSTPONED'"
+                    + "            AND excluded.starts_at < games.starts_at)";
 
     private final Database db;
     private final JsonColumns json;
@@ -114,6 +131,34 @@ public final class GameRepository {
                 Timestamps.format(from),
                 Timestamps.format(to),
                 limit);
+    }
+
+    /** Deletes games that started before {@code cutoff}. @return rows deleted */
+    public int deleteStartedBefore(Instant cutoff) {
+        try (Connection c = db.write();
+                PreparedStatement ps =
+                        c.prepareStatement("DELETE FROM games WHERE starts_at < ?")) {
+            ps.setString(1, Timestamps.format(cutoff));
+            return ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new PersistenceException("Game retention delete failed", e);
+        }
+    }
+
+    /** Game counts per league (ops view). */
+    public Map<String, Integer> countByLeague() {
+        Map<String, Integer> out = new TreeMap<>();
+        try (Connection c = db.read();
+                PreparedStatement ps =
+                        c.prepareStatement("SELECT league, count(*) FROM games GROUP BY league");
+                ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                out.put(rs.getString(1), rs.getInt(2));
+            }
+            return out;
+        } catch (SQLException e) {
+            throw new PersistenceException("Game count failed", e);
+        }
     }
 
     public int count() {

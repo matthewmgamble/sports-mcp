@@ -101,16 +101,15 @@ public final class TeamCatalog {
         }
     }
 
-    /** Syncs every enabled league whose last successful team sync is older than {@code maxAge}. */
-    public void syncStale(Duration maxAge) {
-        Instant cutoff = clock.instant().minus(maxAge);
+    /**
+     * Syncs every enabled league whose last successful team sync is older than {@code maxAge},
+     * without retrying a failing league more often than {@code retryAfter}.
+     */
+    public void syncStale(Duration maxAge, Duration retryAfter) {
+        Instant now = clock.instant();
         for (League league : leagues.enabled()) {
-            Instant last =
-                    syncState
-                            .find(league.id(), SyncState.Kind.TEAMS)
-                            .map(SyncState::lastSuccessAt)
-                            .orElse(null);
-            if (last == null || last.isBefore(cutoff)) {
+            Optional<SyncState> state = syncState.find(league.id(), SyncState.Kind.TEAMS);
+            if (SyncDue.isDue(state, now, maxAge, retryAfter)) {
                 sync(league);
             }
         }

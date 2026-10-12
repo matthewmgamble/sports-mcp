@@ -52,7 +52,7 @@ class TeamResolverTest {
                         new SyncStateRepository(db),
                         TeamAliases.bundled(),
                         Clock.fixed(Instant.parse("2026-10-12T18:00:00Z"), ZoneOffset.UTC));
-        catalog.syncStale(Duration.ofDays(1));
+        catalog.syncStale(Duration.ofDays(1), Duration.ofMinutes(5));
         resolver = new TeamResolver(catalog);
     }
 

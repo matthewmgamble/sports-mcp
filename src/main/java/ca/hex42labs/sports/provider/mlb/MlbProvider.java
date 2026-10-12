@@ -1,17 +1,22 @@
 package ca.hex42labs.sports.provider.mlb;
 
+import ca.hex42labs.sports.domain.Game;
 import ca.hex42labs.sports.domain.Ids;
 import ca.hex42labs.sports.domain.League;
 import ca.hex42labs.sports.domain.Team;
 import ca.hex42labs.sports.provider.ProviderBatch;
 import ca.hex42labs.sports.provider.ProviderException;
+import ca.hex42labs.sports.provider.ScheduleResult;
 import ca.hex42labs.sports.provider.SeedTeams;
 import ca.hex42labs.sports.provider.SportsProvider;
 import ca.hex42labs.sports.provider.UpstreamHttp;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.net.URI;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -65,12 +70,16 @@ public final class MlbProvider implements SportsProvider {
 
     private static final String LOGO_URL = "https://a.espncdn.com/i/teamlogos/mlb/500/%s.png";
 
+    private static final String HYDRATE = "&hydrate=linescore,team";
+
     private final UpstreamHttp http;
     private final String baseUrl;
+    private final Clock clock;
 
-    public MlbProvider(UpstreamHttp http, String baseUrl) {
+    public MlbProvider(UpstreamHttp http, String baseUrl, Clock clock) {
         this.http = http;
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        this.clock = clock;
     }
 
     @Override
@@ -101,33 +110,98 @@ public final class MlbProvider implements SportsProvider {
     static List<Team> teams(JsonNode root) {
         List<Team> teams = new ArrayList<>();
         for (JsonNode t : root.path("teams")) {
-            int mlbId = t.path("id").asInt(-1);
-            String key = ESPN_ABBR.get(mlbId);
-            if (key == null) {
-                log.warn(
-                        "Unknown MLB team id {} ({}); add it to ESPN_ABBR",
-                        mlbId,
-                        t.path("name").asText());
-                continue;
-            }
-            teams.add(
-                    new Team(
-                            Ids.team("mlb", key),
-                            "mlb",
-                            ID,
-                            String.valueOf(mlbId),
-                            t.path("name").asText(key),
-                            t.path("teamName").asText(null),
-                            t.path("abbreviation").asText(null),
-                            t.path("franchiseName").asText(null),
-                            String.format(LOGO_URL, key),
-                            List.of()));
+            team(t).ifPresentOrElse(
+                            teams::add,
+                            () ->
+                                    log.warn(
+                                            "Unknown MLB team id {} ({}); add it to ESPN_ABBR",
+                                            t.path("id").asInt(-1),
+                                            t.path("name").asText()));
         }
         return teams;
     }
 
+    /** One team object (from {@code /teams} or a hydrated schedule); empty if not an MLB club. */
+    static Optional<Team> team(JsonNode t) {
+        int mlbId = t.path("id").asInt(-1);
+        String key = ESPN_ABBR.get(mlbId);
+        if (key == null) {
+            return Optional.empty();
+        }
+        return Optional.of(
+                new Team(
+                        Ids.team("mlb", key),
+                        "mlb",
+                        ID,
+                        String.valueOf(mlbId),
+                        t.path("name").asText(key),
+                        t.path("teamName").asText(null),
+                        t.path("abbreviation").asText(null),
+                        t.path("franchiseName").asText(null),
+                        String.format(LOGO_URL, key),
+                        List.of()));
+    }
+
+    /** One date. Single-date queries are the reliable form (ranges intermittently 406). */
     @Override
-    public ProviderBatch fetchScoreboard(League league, LocalDate bucket) {
-        throw new UnsupportedOperationException("MLB scoreboard arrives in Sprint 2");
+    public ProviderBatch fetchScoreboard(League league, LocalDate bucket) throws ProviderException {
+        JsonNode root =
+                http.getJson(
+                        ID, URI.create(baseUrl + "/schedule?sportId=1&date=" + bucket + HYDRATE));
+        Instant fetchedAt = clock.instant();
+        Map<String, Team> teams = new LinkedHashMap<>();
+        List<Game> games = mapSchedule(root, fetchedAt, teams);
+        return new ProviderBatch(
+                league.id(), bucket, games, List.copyOf(teams.values()), fetchedAt);
+    }
+
+    /**
+     * One range request for the whole window. Pulseboard saw statsapi answer ranges with an
+     * intermittent HTTP 406; on that, fall back to one request per day.
+     */
+    @Override
+    public ScheduleResult fetchSchedule(League league, LocalDate from, LocalDate to)
+            throws ProviderException {
+        ScheduleResult.Builder result = new ScheduleResult.Builder();
+        try {
+            JsonNode root =
+                    http.getJson(
+                            ID,
+                            URI.create(
+                                    baseUrl
+                                            + "/schedule?sportId=1&startDate="
+                                            + from
+                                            + "&endDate="
+                                            + to
+                                            + HYDRATE));
+            Instant fetchedAt = clock.instant();
+            Map<String, Team> teams = new LinkedHashMap<>();
+            result.add(mapSchedule(root, fetchedAt, teams), List.copyOf(teams.values()), fetchedAt);
+            return result.build(fetchedAt);
+        } catch (ProviderException e) {
+            if (e.kind() != ProviderException.Kind.HTTP_STATUS || e.status() != 406) {
+                throw e;
+            }
+            log.info("MLB range {}..{} got 406; falling back to per-day requests", from, to);
+        }
+        for (LocalDate day = from; !day.isAfter(to); day = day.plusDays(1)) {
+            try {
+                result.add(fetchScoreboard(league, day));
+            } catch (ProviderException e) {
+                result.fail(day.toString(), e);
+            }
+        }
+        return result.build(clock.instant());
+    }
+
+    private static List<Game> mapSchedule(
+            JsonNode root, Instant fetchedAt, Map<String, Team> teams) {
+        List<Game> games = new ArrayList<>();
+        for (JsonNode date : root.path("dates")) {
+            for (JsonNode g : date.path("games")) {
+                MlbMapper.game(g, fetchedAt, teams).ifPresent(games::add);
+            }
+        }
+        return games;
     }
 }

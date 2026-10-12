@@ -21,7 +21,10 @@ public record AppConfig(
         String espnBaseUrl,
         String nhlBaseUrl,
         String mlbBaseUrl,
-        boolean syncOnStartup,
+        boolean backgroundSync,
+        int syncHorizonDays,
+        int retentionFinishedDays,
+        String adminToken,
         String version) {
 
     public static final String REPO_URL = "https://github.com/matthewmgamble/sports-mcp";
@@ -49,7 +52,12 @@ public record AppConfig(
                 get(env, "PROVIDER_ESPN_BASE_URL", "https://site.api.espn.com/apis/site/v2/sports"),
                 get(env, "PROVIDER_NHL_BASE_URL", "https://api-web.nhle.com/v1"),
                 get(env, "PROVIDER_MLB_BASE_URL", "https://statsapi.mlb.com/api/v1"),
-                Boolean.parseBoolean(get(env, "SYNC_ON_STARTUP", "true")),
+                // Team/schedule sync and retention jobs. Tests turn this off.
+                Boolean.parseBoolean(get(env, "BACKGROUND_SYNC", "true")),
+                Integer.parseInt(get(env, "SYNC_HORIZON_DAYS", "14")),
+                Integer.parseInt(get(env, "RETENTION_FINISHED_DAYS", "90")),
+                // Bearer token for /admin/* on the management port. Blank disables admin.
+                get(env, "ADMIN_TOKEN", ""),
                 AppConfig.class.getPackage().getImplementationVersion() != null
                         ? AppConfig.class.getPackage().getImplementationVersion()
                         : "dev");

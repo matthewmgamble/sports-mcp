@@ -2,9 +2,9 @@
 
 Sports scores, schedules and team information for AI agents (MCP) and regular apps (REST).
 
-> **Status: Sprint 1 (domain + persistence).** Team catalogs for all nine leagues sync and
-> persist; ESPN scoreboards map to the normalised model. MCP exposes only `sports_ping` so far.
-> See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) for the roadmap.
+> **Status: Sprint 2 (schedule ingestion).** Team catalogs and schedules (yesterday through
+> +14 days) for all nine leagues sync in the background and persist across restarts. MCP exposes
+> only `sports_ping` so far. See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) for the roadmap.
 
 **Leagues (planned MVP):** NFL, NHL, NBA, MLB, NCAA football, NCAA men's basketball, Premier League,
 La Liga, Bundesliga.
@@ -28,6 +28,18 @@ npx @modelcontextprotocol/inspector --cli http://localhost:8080/mcp --transport 
 ```
 
 Configuration is via environment variables; see [`.env.example`](.env.example).
+
+### Operations
+
+A separate management listener (default `127.0.0.1:9090`) serves admin endpoints when
+`ADMIN_TOKEN` is set:
+
+```sh
+curl -H "Authorization: Bearer $ADMIN_TOKEN" localhost:9090/admin/sync-state
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" "localhost:9090/admin/resync?league=nhl"
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" "localhost:9090/admin/resync?league=mlb&from=2026-09-20&to=2026-09-30"
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" "localhost:9090/admin/resync?league=nfl&kind=teams"
+```
 
 ### Docker
 

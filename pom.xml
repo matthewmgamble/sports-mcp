@@ -227,7 +227,6 @@
           <java>
             <googleJavaFormat>
               <style>AOSP</style>
-              <reflowLongStrings>true</reflowLongStrings>
             </googleJavaFormat>
             <toggleOffOn/>
             <removeUnusedImports/>

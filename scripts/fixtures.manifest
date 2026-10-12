@@ -42,6 +42,8 @@ nhl/club-schedule-season-tor               https://api-web.nhle.com/v1/club-sche
 
 # ---- MLB (statsapi.mlb.com) ----
 mlb/schedule-20260922-postponed            https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=2026-09-22&hydrate=linescore,team
+mlb/schedule-20260923-makeup               https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=2026-09-23&hydrate=linescore,team
+mlb/schedule-range-postponed-makeup        https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=2026-09-22&endDate=2026-09-23&hydrate=linescore,team
 mlb/schedule-20260927-cancelled            https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=2026-09-27&hydrate=linescore,team
 mlb/schedule-20260902-extra-innings        https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=2026-09-02&hydrate=linescore,team
 mlb/schedule-range-postseason              https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=2026-10-01&endDate=2026-10-11&hydrate=linescore,team

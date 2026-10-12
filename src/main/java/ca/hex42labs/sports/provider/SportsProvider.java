@@ -22,4 +22,14 @@ public interface SportsProvider {
      * reference. One call refreshes all games on that date, so it doubles as the live batch.
      */
     ProviderBatch fetchScoreboard(League league, LocalDate bucket) throws ProviderException;
+
+    /**
+     * Every game in the buckets {@code from..to} inclusive, using whatever request pattern suits
+     * the provider (ESPN: one call per day; NHL: weekly pages; MLB: one range call). Partial
+     * failures are reported in the result.
+     *
+     * @throws ProviderException only if nothing at all could be fetched
+     */
+    ScheduleResult fetchSchedule(League league, LocalDate from, LocalDate to)
+            throws ProviderException;
 }

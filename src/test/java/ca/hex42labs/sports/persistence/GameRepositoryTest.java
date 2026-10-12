@@ -80,6 +80,47 @@ class GameRepositoryTest {
     }
 
     @Test
+    void staleOriginalDateListingCannotRollBackTheMakeupGame() {
+        try (Database db = Database.open(tmp.resolve("g.db").toString())) {
+            var repo = new GameRepository(db, JSON);
+            Instant makeup = KICKOFF.plus(Duration.ofDays(1));
+            Game makeupFinal =
+                    Games.rescheduled(mnf(), makeup, GameStatus.FINAL, T0.plusSeconds(10));
+            repo.upsertAll(List.of(makeupFinal), T0);
+            // Later fetch of the original date still lists it as postponed, with the old start.
+            Game originalListing =
+                    Games.rescheduled(mnf(), KICKOFF, GameStatus.POSTPONED, T0.plusSeconds(20));
+            assertThat(repo.upsertAll(List.of(originalListing), T0)).isZero();
+            Game stored = repo.findById(mnf().id()).orElseThrow();
+            assertThat(stored.status()).isEqualTo(GameStatus.FINAL);
+            assertThat(stored.startsAt()).isEqualTo(makeup);
+            // But a game postponed again on its (current) date does update.
+            Game postponedAgain =
+                    Games.rescheduled(mnf(), makeup, GameStatus.POSTPONED, T0.plusSeconds(30));
+            assertThat(repo.upsertAll(List.of(postponedAgain), T0)).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void retentionDeletesOldGames() {
+        try (Database db = Database.open(tmp.resolve("g.db").toString())) {
+            var repo = new GameRepository(db, JSON);
+            repo.upsertAll(
+                    List.of(
+                            Games.scheduled(
+                                    "nfl:old",
+                                    "nfl:gb",
+                                    "nfl:chi",
+                                    KICKOFF.minus(Duration.ofDays(100)),
+                                    T0),
+                            mnf()),
+                    T0);
+            assertThat(repo.deleteStartedBefore(KICKOFF.minus(Duration.ofDays(90)))).isEqualTo(1);
+            assertThat(repo.countByLeague()).containsExactly(java.util.Map.entry("nfl", 1));
+        }
+    }
+
+    @Test
     void survivesRestart() {
         String path = tmp.resolve("g.db").toString();
         try (Database db = Database.open(path)) {

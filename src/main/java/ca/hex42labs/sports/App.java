@@ -1,6 +1,9 @@
 package ca.hex42labs.sports;
 
+import ca.hex42labs.sports.api.admin.ManagementServer;
 import ca.hex42labs.sports.api.mcp.McpServerFactory;
+import ca.hex42labs.sports.application.ScheduleSync;
+import ca.hex42labs.sports.application.SyncPlanner;
 import ca.hex42labs.sports.application.TeamAliases;
 import ca.hex42labs.sports.application.TeamCatalog;
 import ca.hex42labs.sports.application.TeamResolver;
@@ -15,6 +18,7 @@ import ca.hex42labs.sports.provider.UpstreamHttp;
 import ca.hex42labs.sports.provider.espn.EspnProvider;
 import ca.hex42labs.sports.provider.mlb.MlbProvider;
 import ca.hex42labs.sports.provider.nhl.NhlProvider;
+import ca.hex42labs.sports.scheduler.BackgroundJobs;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -34,15 +38,15 @@ public final class App implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(App.class);
 
-    /** Team lists change a few times a year; refresh daily. */
-    static final Duration TEAM_SYNC_MAX_AGE = Duration.ofHours(24);
-
     private final AppConfig config;
     private final Database db;
     private final LeagueRegistry leagues;
     private final TeamCatalog teams;
     private final TeamResolver teamResolver;
     private final GameRepository games;
+    private final ScheduleSync schedules;
+    private final ManagementServer management;
+    private final BackgroundJobs jobs;
     private final McpServerFactory.Mcp mcp;
     private final Javalin http;
 
@@ -57,19 +61,45 @@ public final class App implements AutoCloseable {
                 new Providers(
                         List.of(
                                 new EspnProvider(http, config.espnBaseUrl(), clock),
-                                new NhlProvider(http, config.nhlBaseUrl()),
-                                new MlbProvider(http, config.mlbBaseUrl())));
+                                new NhlProvider(http, config.nhlBaseUrl(), clock),
+                                new MlbProvider(http, config.mlbBaseUrl(), clock)));
         this.games = new GameRepository(db, json);
+        SyncStateRepository syncState = new SyncStateRepository(db);
         this.teams =
                 new TeamCatalog(
                         leagues,
                         providers,
                         new TeamRepository(db, json),
-                        new SyncStateRepository(db),
+                        syncState,
                         TeamAliases.bundled(),
                         clock);
         this.teams.load();
         this.teamResolver = new TeamResolver(teams);
+        this.schedules =
+                new ScheduleSync(
+                        providers, games, teams, syncState, clock, config.syncHorizonDays());
+        this.jobs =
+                config.backgroundSync()
+                        ? new BackgroundJobs(
+                                leagues,
+                                teams,
+                                schedules,
+                                new SyncPlanner(schedules, clock),
+                                games,
+                                clock,
+                                Duration.ofDays(config.retentionFinishedDays()))
+                        : null;
+        this.management =
+                new ManagementServer(
+                        config.mgmtBindHost(),
+                        config.mgmtPort(),
+                        config.adminToken(),
+                        json,
+                        leagues,
+                        teams,
+                        schedules,
+                        syncState,
+                        games);
 
         this.mcp = McpServerFactory.create(config, json, clock);
 
@@ -102,16 +132,19 @@ public final class App implements AutoCloseable {
 
     public App start() {
         http.start();
-        if (config.syncOnStartup()) {
-            // Off the startup path: serve whatever is persisted while catalogs refresh.
-            Thread.ofVirtual().name("team-sync").start(() -> teams.syncStale(TEAM_SYNC_MAX_AGE));
+        management.start();
+        if (jobs != null) {
+            // Off the startup path: serve whatever is persisted while syncs catch up.
+            jobs.start();
         }
         log.info(
-                "sports-mcp {} listening on {}:{} (MCP at {})",
+                "sports-mcp {} listening on {}:{} (MCP at {}), management on {}:{}",
                 config.version(),
                 config.bindHost(),
                 port(),
-                McpServerFactory.ENDPOINT);
+                McpServerFactory.ENDPOINT,
+                config.mgmtBindHost(),
+                management.port());
         return this;
     }
 
@@ -136,8 +169,20 @@ public final class App implements AutoCloseable {
         return games;
     }
 
+    public ScheduleSync schedules() {
+        return schedules;
+    }
+
+    public int managementPort() {
+        return management.port();
+    }
+
     @Override
     public void close() {
+        if (jobs != null) {
+            jobs.close();
+        }
+        management.close();
         http.stop();
         mcp.close();
         db.close();

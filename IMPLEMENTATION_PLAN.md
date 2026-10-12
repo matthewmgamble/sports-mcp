@@ -315,6 +315,7 @@ Domain types, ID scheme, `LeagueRegistry` (9 leagues), `UpstreamHttp`, ESPN clie
 **Acceptance:** fixture tests pass for every ESPN league's status mappings and null-score rule; team catalogs for all 9 leagues load and survive restart; duplicate events never duplicate rows.
 
 ### Sprint 2: NHL + MLB adapters, schedule sync (4–5 days)
+*Implementation notes (done 2026-10-12):* schedules are driven by a one-minute tick that reads `sync_state` (`SCHEDULE` = full window, `SCHEDULE_NEAR` = 48 h, `TEAMS`), so restarts and outages catch up without timers. Failing leagues retry every 5 minutes. `SYNC_ON_STARTUP` became `BACKGROUND_SYNC`. Admin endpoints (`/admin/resync`, `/admin/sync-state`) live on the management port now rather than in Sprint 5. MLB makeup games reuse the postponed game's `gamePk` (see upstream-contract.md), which is guarded in both the merge and the upsert.
 NHL schedule/score mappers, MLB schedule/linescore mappers with 406 fallback, `ScheduleSyncScheduler` (6 h / 30 min / startup catch-up), `SyncState`, retention job, admin resync, postponed/makeup dedup.
 **Acceptance:** after a cold start with no client traffic, D-1…D+14 games exist for all enabled leagues; postponed games update in place; empty off-season windows record success; restart preserves everything.
 

@@ -38,7 +38,8 @@ class AppEndToEndTest {
                                 "PORT", "0",
                                 "DB_PATH", tmp.resolve("test.db").toString(),
                                 "MCP_ALLOWED_ORIGINS", "https://allowed.example",
-                                "SYNC_ON_STARTUP", "false"));
+                                "BACKGROUND_SYNC", "false",
+                                "MGMT_PORT", "0"));
         app = new App(config, Clock.fixed(NOW, ZoneOffset.UTC)).start();
         base = "http://127.0.0.1:" + app.port();
     }

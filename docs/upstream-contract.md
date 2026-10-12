@@ -98,7 +98,7 @@ College and soccer logos are keyed by numeric id, pro leagues by lowercase abbre
 | Purpose | Path | Notes |
 |---|---|---|
 | Live/day scores | `/score/{YYYY-MM-DD}` | **Includes `clock` and `periodDescriptor` for every game**, so one call covers live clocks for the day |
-| Schedule | `/schedule/{YYYY-MM-DD}` | Returns a 7-day `gameWeek`; `nextStartDate` / `previousStartDate` |
+| Schedule | `/schedule/{YYYY-MM-DD}` | Returns a 7-day `gameWeek`; `nextStartDate` skips empty weeks (off-season: jumps to preseason), so page by it and stop once past the window |
 | Team season | `/club-schedule-season/{ABBR}/{20262027}` | `/now` 307-redirects here |
 | Teams | `/standings/now` | 32 teams; `teamAbbrev.default`, `teamName.default` (+`fr`). May be empty off-season, so ship a seed |
 
@@ -139,6 +139,17 @@ Verified against ESPN's NHL team list (`espn/nhl/teams` fixture); `NhlProviderTe
 Expected: `W` World Series, `S` spring training (excluded by default), `A` All-Star, `E` exhibition.
 
 Extra innings: `linescore.currentInning > scheduledInnings` (e.g. gamePk 824312, 11 innings).
+
+### Postponed games and makeups share a gamePk
+gamePk 824785 (TOR @ BAL) is listed on **2026-09-22 as Postponed** (`rescheduleDate:
+2026-09-23T17:35Z`) and on **2026-09-23 as Final** (`rescheduledFrom: 2026-09-22T22:35Z`). A range
+query covering both days returns both listings. We handle this twice:
+- in one response, `ScheduleResult.Builder` keeps the non-postponed (makeup) listing;
+- across fetches, the games upsert refuses to let a POSTPONED listing with an earlier start
+  overwrite a non-postponed row with a later start.
+
+Fixtures: `mlb/schedule-20260922-postponed`, `mlb/schedule-20260923-makeup`,
+`mlb/schedule-range-postponed-makeup`.
 
 ---
 
