@@ -27,7 +27,7 @@
     <jackson.version>2.22.3</jackson.version>
     <sqlite.version>3.53.4.0</sqlite.version>
     <hikari.version>7.1.0</hikari.version>
-    <flyway.version>13.10.0</flyway.version>
+    <flyway.version>13.10.3</flyway.version>
     <caffeine.version>3.3.0</caffeine.version>
     <resilience4j.version>2.4.0</resilience4j.version>
     <micrometer.version>1.17.1</micrometer.version>
