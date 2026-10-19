@@ -23,7 +23,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
     <javalin.version>7.2.3</javalin.version>
-    <mcp.version>2.0.1</mcp.version>
+    <mcp.version>2.1.0</mcp.version>
     <jackson.version>2.22.3</jackson.version>
     <sqlite.version>3.53.4.0</sqlite.version>
     <hikari.version>7.1.0</hikari.version>
